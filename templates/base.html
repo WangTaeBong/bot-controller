@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/static/images/favicon.png">
+    <title>{{ title }}</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        /* Header */
+        .header {
+            width: 100%;
+            padding: 15px 20px;
+            background-color: #f0f0f0;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* Main Content */
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        /* Button Styles */
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            padding: 12px 20px;
+            font-size: 16px;
+            color: #333;
+            background-color: #e0e0e0;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #d6d6d6;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn.logout {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .btn.logout:hover {
+            background-color: #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">{{ title }}</div>
+    <div class="content">
+        <div>
+            {{ content | safe }}
+        </div>
+        <div class="btn-container">
+            {% if title != "MAI-Chat BotController Admin" %}
+                <a href="/menu" class="btn">Back to Menu</a>
+            {% endif %}
+            <a href="/logout" class="btn logout">Logout</a>
+        </div>
+    </div>
+</body>
+</html>
