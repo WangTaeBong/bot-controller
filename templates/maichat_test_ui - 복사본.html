@@ -307,10 +307,6 @@
             <div id="chatFields" style="display:none;">
                 <label for="chatUser">Chat Query:</label>
                 <input type="text" id="chatUser" placeholder="채팅할 내용을 입력">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="streamingMode">
-                    <label for="streamingMode" style="display:inline;">스트리밍 모드 사용</label>
-                </div>
                 <label for="chatCategory1">Category 1 (선택):</label>
                 <input type="text" id="chatCategory1" placeholder="카테고리1 입력">
                 <label for="chatCategory2">Category 2 (선택):</label>
@@ -752,32 +748,13 @@
                     meta: meta,
                     chat: chatReqData
                 };
-
-                url = '/v1/chat';
-
-                // 스트리밍 모드 확인
-                const useStreaming = document.getElementById('streamingMode').checked;
-                // 스트리밍 모드일 경우 XMLHttpRequest 사용, 아닐 경우 일반 fetch 사용
-                if (useStreaming) {
-                    // 추가 검증 단계로 API URL이 '/v1/chat/stream'인지 확인
-                    if (url !== '/v1/chat/stream') {
-                        url = '/v1/chat/stream';
-                    }
-                    handleStreamingChat(url, payload);
-                    return; // 스트리밍 모드에서는 여기서 함수 종료
-                }
+                url = "/v1/chat";
 
                 // 채팅인 경우, 사용자의 입력 메시지를 채팅 내역에 추가 (개선된 함수 사용)
                 addChatMessage(true, chatUser);
 
                 // 채팅 입력란 초기화
                 document.getElementById('chatUser').value = "";
-
-                // 스트리밍 모드일 경우 EventSource 사용, 아닐 경우 일반 fetch 사용
-                if (useStreaming) {
-                    handleStreamingChat(url, payload);
-                    return; // 스트리밍 모드에서는 여기서 함수 종료
-                }
                 break;
 
             default:
@@ -809,113 +786,6 @@
                 document.getElementById('resultSummary').innerText = api + " API 호출 실패";
                 document.getElementById('detailBtn').style.display = 'none';
             });
-    }
-
-    // 스트리밍 채팅 처리 함수
-    function handleStreamingChat(url, payload) {
-        document.getElementById('resultSummary').innerText = "스트리밍 응답 대기중...";
-
-        // 시스템 응답 변수 초기화
-        let systemResponse = "";
-        let responseDiv = document.createElement('div');
-        responseDiv.className = "chat-message system";
-
-        // 발신자 헤더
-        const header = document.createElement('div');
-        header.className = 'message-header';
-        header.innerHTML = '<strong>System:</strong>';
-
-        // 메시지 내용 컨테이너
-        const body = document.createElement('div');
-        body.className = 'message-body';
-        body.innerHTML = "..."; // 초기 로딩 표시
-
-        // 메시지에 추가
-        responseDiv.appendChild(header);
-        responseDiv.appendChild(body);
-        document.getElementById('chatHistory').appendChild(responseDiv);
-
-        // 스크롤 자동 이동
-        document.getElementById('chatHistory').scrollTop = document.getElementById('chatHistory').scrollHeight;
-
-        // 단일 POST 요청만 사용하고 스트리밍 응답 처리
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', url, true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('Accept', 'text/event-stream');
-
-        // 진행 상황에 따라 청크 처리
-        let buffer = "";
-        xhr.onprogress = function(event) {
-            // 새 데이터가 있는 경우
-            if (event.target.responseText) {
-                // 전체 응답에서 아직 처리하지 않은 새 청크만 가져오기
-                const newChunk = event.target.responseText.substring(buffer.length);
-                buffer = event.target.responseText;
-
-                // 새 청크에서 SSE 형식의 메시지 파싱
-                const lines = newChunk.split('\n\n');
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const jsonStr = line.substring(6); // "data: " 제거
-                            const data = JSON.parse(jsonStr);
-
-                            // 오류 처리
-                            if (data.error) {
-                                body.innerHTML = renderMarkdown(data.text || "오류가 발생했습니다.");
-                                document.getElementById('resultSummary').innerText = "스트리밍 오류 발생";
-                                continue;
-                            }
-
-                            // 완료된 전체 응답 처리
-                            if (data.complete_response) {
-                                systemResponse = data.complete_response;
-                                body.innerHTML = renderMarkdown(systemResponse);
-                                responseData = { chat: { system: systemResponse } };
-                                document.getElementById('resultSummary').innerText = "스트리밍 응답 완료";
-                                document.getElementById('detailBtn').style.display = 'inline-block';
-                                continue;
-                            }
-
-                            // 부분 텍스트 처리
-                            if (data.text !== undefined) {
-                                systemResponse += data.text;
-                                body.innerHTML = renderMarkdown(systemResponse);
-
-                                // 스크롤 자동 이동
-                                document.getElementById('chatHistory').scrollTop = document.getElementById('chatHistory').scrollHeight;
-                            }
-
-                        } catch (error) {
-                            console.error('Error parsing JSON:', error, line);
-                        }
-                    }
-                }
-            }
-        };
-
-        // 완료 처리
-        xhr.onloadend = function() {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                document.getElementById('resultSummary').innerText = "스트리밍 응답 완료";
-                document.getElementById('detailBtn').style.display = 'inline-block';
-            } else {
-                body.innerHTML = `오류 코드: ${xhr.status}`;
-                document.getElementById('resultSummary').innerText = "API 오류 발생";
-            }
-        };
-
-        // 오류 처리
-        xhr.onerror = function(error) {
-            console.error('XHR error:', error);
-            body.innerHTML = "통신 오류가 발생했습니다.";
-            document.getElementById('resultSummary').innerText = "통신 오류 발생";
-        };
-
-        // 요청 보내기
-        xhr.send(JSON.stringify(payload));
     }
 
     // Modal 열기 및 닫기 함수
