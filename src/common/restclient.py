@@ -221,225 +221,81 @@ class RestClient:
 
     @classmethod
     async def restapi_stream_request_async(cls, url, body_data, headers=None, background_tasks=None):
-        """
-        Make an asynchronous POST request to a streaming API endpoint and return the StreamingResponse.
-
-        Enhanced with better error handling and recovery mechanisms for connection issues.
-
-        Args:
-            url (str): The URL to send the request to
-            body_data (dict): The request body data
-            headers (dict, optional): Additional headers to include
-            background_tasks (BackgroundTasks, optional): FastAPI background tasks manager
-
-        Returns:
-            StreamingResponse: The streaming response from the upstream service
-        """
         session_id = body_data.get('meta', {}).get('session_id', 'unknown')
+        logging.info(f"[{session_id}] 스트리밍 요청 시작: {url}")
 
-        # Prepare headers - 기본 헤더 직접 준비
-        if headers is None:
-            headers = {}
-
-        # JSON 컨텐츠를 위한 기본 헤더
         req_headers = {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream'
         }
-
-        # 사용자 지정 헤더 추가
         if headers:
             req_headers.update(headers)
 
-        # 스트리밍 응답을 처리하는 함수
-        async def process_streaming_response():
-            max_retries = 2
-            retry_count = 0
+        async def stream_generator():
+            try:
+                timeout = aiohttp.ClientTimeout(total=3600, connect=30, sock_read=300)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    logging.info(f"[{session_id}] 스트리밍 세션 생성됨")
 
-            while retry_count <= max_retries:
-                try:
-                    # 타임아웃 설정 증가 (연결 유지 시간)
-                    timeout = aiohttp.ClientTimeout(
-                        total=3600,  # 전체 타임아웃 (1시간)
-                        sock_connect=30,  # 소켓 연결 타임아웃
-                        sock_read=300  # 소켓 읽기 타임아웃
-                    )
-
-                    logging.info(
-                        f"[{session_id}] Connecting to streaming endpoint (attempt {retry_count + 1}/{max_retries + 1})")
-
-                    # Connect to the upstream endpoint with TCP keepalive
-                    connector = aiohttp.TCPConnector(keepalive_timeout=60)
-                    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-                        async with session.post(url, json=body_data, headers=req_headers) as response:
-                            # Check if response is successful
-                            if response.status != 200:
-                                logging.error(f"[{session_id}] Stream request failed with status {response.status}")
-                                error_text = await response.text()
-                                logging.error(f"[{session_id}] Error response: {error_text[:500]}")
-
-                                async def error_stream():
-                                    error_data = {
-                                        "error": True,
-                                        "text": f"Upstream service error: {response.status} - {error_text[:100] if error_text else 'No details'}",
-                                        "finished": True
-                                    }
-                                    yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
-
-                                return StreamingResponse(
-                                    error_stream(),
-                                    media_type="text/event-stream; charset=utf-8"
-                                )
-
-                            # Create a buffer to accumulate partial chunks
-                            buffer = ""
-
-                            # Create a stream that properly handles SSE format
-                            async def stream_response():
-                                nonlocal buffer
-
-                                try:
-                                    logging.info(
-                                        f"[{session_id}] Stream connection established, starting to receive data")
-
-                                    # Process each chunk from the upstream service
-                                    async for chunk in response.content:
-                                        chunk_text = chunk.decode('utf-8')
-                                        logging.error(chunk_text)
-                                        buffer += chunk_text
-
-                                        # SSE 형식 처리: data: {...}\n\n 패턴 찾기
-                                        while '\n\n' in buffer:
-                                            parts = buffer.split('\n\n', 1)
-                                            event = parts[0]
-                                            buffer = parts[1]
-
-                                            if event.startswith('data: '):
-                                                # 완전한 이벤트 찾음, 클라이언트에 전달
-                                                yield event + '\n\n'
-                                            elif event.strip():
-                                                # 알 수 없는 형식의 이벤트이지만 내용이 있음
-                                                logging.warning(f"[{session_id}] Unknown event format: {event[:50]}")
-                                                # JSON으로 래핑해서 전달
-                                                data = {
-                                                    "text": event.strip(),
-                                                    "finished": False
-                                                }
-                                                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-                                        # 남은 버퍼가 너무 길면 (불완전한 이벤트) 바로 전송
-                                        if len(buffer) > 1024:
-                                            data = {
-                                                "text": buffer,
-                                                "finished": False
-                                            }
-                                            yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-                                            buffer = ""
-
-                                    # 스트림 종료 처리
-                                    logging.info(f"[{session_id}] Stream completed normally")
-
-                                    # 남은 버퍼 처리
-                                    if buffer.strip():
-                                        data = {
-                                            "text": buffer.strip(),
-                                            "finished": False
-                                        }
-                                        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-                                    # 완료 신호 전송
-                                    data = {
-                                        "text": "",
-                                        "finished": True
-                                    }
-                                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-                                except (aiohttp.ClientError, asyncio.CancelledError) as e:
-                                    logging.error(f"[{session_id}] Connection error during streaming: {str(e)}")
-
-                                    if 'Connection closed' in str(e):
-                                        # 연결이 예기치 않게 닫힌 경우
-                                        if buffer.strip():
-                                            # 남은 버퍼가 있으면 먼저 전송
-                                            data = {
-                                                "text": buffer.strip() + "\n\n[연결이 종료되었습니다]",
-                                                "finished": False
-                                            }
-                                            yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-                                        # 완료 메시지 전송
-                                        data = {
-                                            "error": True,
-                                            "text": "서버와의 연결이 종료되었습니다. 일부 응답이 누락되었을 수 있습니다.",
-                                            "finished": True
-                                        }
-                                        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-                                    else:
-                                        # 기타 클라이언트 오류
-                                        data = {
-                                            "error": True,
-                                            "text": f"스트리밍 오류: {str(e)}",
-                                            "finished": True
-                                        }
-                                        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-                                except Exception as e:
-                                    logging.error(f"[{session_id}] Unexpected error in stream processing: {str(e)}",
-                                                 exc_info=True)
-                                    data = {
-                                        "error": True,
-                                        "text": f"스트리밍 처리 오류: {str(e)}",
-                                        "finished": True
-                                    }
-                                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-                            # Return the streaming response
-                            return StreamingResponse(
-                                stream_response(),
-                                media_type="text/event-stream; charset=utf-8"
-                            )
-
-                except aiohttp.ClientConnectorError as e:
-                    logging.error(f"[{session_id}] Connection error: {str(e)}")
-                    retry_count += 1
-
-                    if retry_count <= max_retries:
-                        # 재시도 전 잠시 대기
-                        wait_time = retry_count * 2  # 점진적으로 대기 시간 증가
-                        logging.info(f"[{session_id}] Retrying in {wait_time} seconds...")
-                        await asyncio.sleep(wait_time)
-                    else:
-                        # 최대 재시도 횟수 초과
-                        async def connection_error_stream():
+                    async with session.post(url, json=body_data, headers=req_headers) as response:
+                        if response.status != 200:
+                            logging.error(f"[{session_id}] 스트리밍 요청 실패: HTTP {response.status}")
+                            error_text = await response.text()
                             error_data = {
                                 "error": True,
-                                "text": f"연결 오류 (재시도 실패): {str(e)}",
+                                "text": f"Server error: {response.status} - {error_text[:100]}",
                                 "finished": True
                             }
                             yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+                            return
 
-                        return StreamingResponse(
-                            connection_error_stream(),
-                            media_type="text/event-stream; charset=utf-8"
-                        )
+                        logging.info(f"[{session_id}] 스트리밍 연결 성공, 데이터 수신 대기 중")
 
-                except Exception as e:
-                    logging.error(f"[{session_id}] Unexpected error: {str(e)}", exc_info=True)
+                        # 디버깅을 위한 카운터
+                        chunk_count = 0
 
-                    async def general_error_stream():
-                        error_data = {
-                            "error": True,
-                            "text": f"오류: {str(e)}",
-                            "finished": True
-                        }
-                        yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+                        # 단순화된 청크 처리
+                        async for chunk in response.content:
+                            chunk_count += 1
+                            if not chunk:
+                                continue
 
-                    return StreamingResponse(
-                        general_error_stream(),
-                        media_type="text/event-stream; charset=utf-8"
-                    )
+                            chunk_text = chunk.decode('utf-8')
+                            logging.debug(f"[{session_id}] 청크 #{chunk_count} 수신: {len(chunk_text)} 바이트")
 
-        # 메인 처리 호출
-        return await process_streaming_response()
+                            # 청크를 그대로 클라이언트에 전달 (SSE 형식 유지)
+                            if chunk_text.strip():
+                                yield chunk_text
+
+                                # 디버깅: 완료 이벤트 확인
+                                if '"finished": true' in chunk_text.lower():
+                                    logging.info(f"[{session_id}] 완료 이벤트 감지됨: {chunk_text}")
+
+                        # 모든 청크 처리 완료
+                        logging.info(f"[{session_id}] 모든 청크({chunk_count}개) 처리 완료")
+
+                        # 혹시 종료 이벤트가 없었다면 추가 전송
+                        if chunk_count > 0:
+                            yield f"data: {json.dumps({'text': '', 'finished': True}, ensure_ascii=False)}\n\n"
+
+            except Exception as e:
+                logging.error(f"[{session_id}] 스트리밍 오류: {str(e)}", exc_info=True)
+                error_data = {
+                    "error": True,
+                    "text": f"스트리밍 오류: {str(e)}",
+                    "finished": True
+                }
+                yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+
+        return StreamingResponse(
+            stream_generator(),
+            media_type="text/event-stream; charset=utf-8",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
 
 
 # ================================

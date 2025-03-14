@@ -553,60 +553,161 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
     Returns:
         StreamingResponse: A streaming response that sends text incrementally as SSE
     """
-    logger.info(f"[process_chat_stream] invoked: [session_id]: {request.meta.session_id}")
-
-    meta = DocChatCommonMeta(
-        company_id=request.meta.company_id,
-        session_id=request.meta.session_id,
-        dept_class=request.meta.dept_class,
-        rag_sys_info=request.meta.rag_sys_info,
-    )
+    session_id = request.meta.session_id
+    logger.info(f"[DEBUG] [process_chat_stream] 함수 시작: [session_id]: {session_id}")
 
     try:
-        # Build the request data for the chat
-        chat_data = request.chat.dict(exclude={"lang"})
-        chat_request = ChatRequest(
-            meta=meta,
-            chat=ChatRequestData.model_validate(chat_data)
+        # 메타데이터 구성
+        meta = DocChatCommonMeta(
+            company_id=request.meta.company_id,
+            session_id=session_id,
+            dept_class=request.meta.dept_class,
+            rag_sys_info=request.meta.rag_sys_info,
         )
-        logger.debug(f"[process_chat_stream] lang:{request.chat.lang}, "
-                     f"was chat request json: {chat_request.model_dump_json()[:300]}...")
 
-        # Apply FAQ query optimization
-        faq_query = optimize_category_faq_query(request)
-        if faq_query:
-            chat_request.chat.user = faq_query
+        logger.info(
+            f"[DEBUG] [process_chat_stream] 메타데이터 생성 완료: company_id={meta.company_id}, rag_sys_info={meta.rag_sys_info}")
 
-        # Construct LLM request
-        chat_llm_request = ChatLLMRequest(
-            meta=meta,
-            chat=ChatLLMReq(
-                lang=request.chat.lang,
-                user=chat_request.chat.user,
-                category1=request.chat.category1,
-                category2=request.chat.category2,
-                category3=request.chat.category3,
-                payload=[]  # For streaming, we'll use the LLM's retriever directly
+        # 채팅 데이터 준비
+        logger.info(f"[DEBUG] [process_chat_stream] 원본 요청 데이터: {request.model_dump_json()[:300]}...")
+
+        try:
+            chat_data = request.chat.dict(exclude={"lang"})
+            logger.info(f"[DEBUG] [process_chat_stream] 채팅 데이터 추출 완료: {chat_data}")
+
+            chat_request = ChatRequest(
+                meta=meta,
+                chat=ChatRequestData.model_validate(chat_data)
             )
+            logger.info(f"[DEBUG] [process_chat_stream] 채팅 요청 객체 생성 완료")
+
+        except Exception as e:
+            logger.error(f"[DEBUG] [process_chat_stream] 채팅 데이터 변환 중 오류: {str(e)}")
+            raise
+
+        # FAQ 쿼리 최적화
+        try:
+            original_query = request.chat.user
+            logger.info(f"[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 전 원본 쿼리: {original_query}")
+
+            faq_query = optimize_category_faq_query(request)
+            if faq_query and faq_query != original_query:
+                logger.info(f"[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 결과: {faq_query}")
+                chat_request.chat.user = faq_query
+            else:
+                logger.info("[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 적용되지 않음")
+
+        except Exception as e:
+            logger.error(f"[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 중 오류: {str(e)}")
+            # FAQ 최적화 실패해도 계속 진행
+            pass
+
+        # LLM 요청 구성
+        try:
+            chat_llm_request = ChatLLMRequest(
+                meta=meta,
+                chat=ChatLLMReq(
+                    lang=request.chat.lang,
+                    user=chat_request.chat.user,
+                    category1=request.chat.category1,
+                    category2=request.chat.category2,
+                    category3=request.chat.category3,
+                    payload=[]  # For streaming, we'll use the LLM's retriever directly
+                )
+            )
+            logger.info(f"[DEBUG] [process_chat_stream] LLM 요청 객체 생성 완료: lang={request.chat.lang}")
+            logger.info(f"[DEBUG] [process_chat_stream] LLM 요청 JSON: {chat_llm_request.model_dump_json()[:300]}...")
+
+        except Exception as e:
+            logger.error(f"[DEBUG] [process_chat_stream] LLM 요청 객체 생성 중 오류: {str(e)}")
+            raise
+
+        # 스트리밍 URL 결정
+        try:
+            # 설정에서 스트리밍 URL 확인
+            streaming_url = getattr(settings.api_interface, 'chat_llm_stream_request_url', None)
+            logger.info(f"[DEBUG] [process_chat_stream] 설정의 스트리밍 URL: {streaming_url}")
+
+            if not streaming_url:
+                # 기본 LLM URL에 "/stream" 추가
+                base_llm_url = getattr(settings.api_interface, 'chat_llm_request_url', None)
+                logger.info(f"[DEBUG] [process_chat_stream] 기본 LLM URL: {base_llm_url}")
+
+                if not base_llm_url:
+                    logger.error("[DEBUG] [process_chat_stream] 오류: LLM URL이 설정되지 않음")
+                    raise ValueError("LLM URL configuration missing")
+
+                streaming_url = f"{base_llm_url}/stream"
+
+            logger.info(f"[DEBUG] [process_chat_stream] 최종 스트리밍 URL: {streaming_url}")
+
+        except Exception as e:
+            logger.error(f"[DEBUG] [process_chat_stream] 스트리밍 URL 결정 중 오류: {str(e)}")
+            raise
+
+        # 스트리밍 요청 전송
+        try:
+            logger.info(f"[DEBUG] [process_chat_stream] 스트리밍 요청 시작: URL={streaming_url}")
+
+            # RestClient를 통해 스트리밍 요청 전송
+            request_data = chat_llm_request.model_dump()
+            logger.info(f"[DEBUG] [process_chat_stream] 요청 데이터: {str(request_data)[:300]}...")
+
+            # 실제 스트리밍 요청 전송
+            stream_response = await rc.restapi_stream_request_async(
+                streaming_url,
+                request_data,
+                background_tasks=background_tasks
+            )
+
+            logger.info(f"[DEBUG] [process_chat_stream] 스트리밍 응답 객체 받음: {type(stream_response)}")
+            logger.info(f"[DEBUG] [process_chat_stream] 스트리밍 응답 객체 받음: {stream_response}")
+
+            # 응답에 추가 헤더 설정
+            if hasattr(stream_response, 'headers'):
+                stream_response.headers["Cache-Control"] = "no-cache"
+                stream_response.headers["Connection"] = "keep-alive"
+                logger.info("[DEBUG] [process_chat_stream] 응답 헤더 설정 완료")
+
+            return stream_response
+
+        except Exception as e:
+            logger.error(f"[DEBUG] [process_chat_stream] 스트리밍 요청 중 오류: {str(e)}", exc_info=True)
+            raise
+
+    except Exception as err:
+        logger.error(f"[DEBUG] [process_chat_stream] 치명적 오류: {err}", exc_info=True)
+
+        # 사용자에게 보여줄 오류 스트림 생성
+        async def error_stream():
+            # 언어별 오류 메시지
+            system_messages = {
+                "ko": "죄송합니다. 지금 답변을 드릴 수 없습니다.",
+                "jp": "申し訳ありませんが、現在回答することができません。",
+                "en": "Sorry, we cannot provide an answer at this time.",
+                "cn": "抱歉，我们目前无法提供答案。"
+            }
+            error_message = system_messages.get(
+                request.chat.lang,
+                "죄송합니다. 지금 답변을 드릴 수 없습니다."
+            )
+
+            # 오류 JSON 생성
+            error_data = {
+                "error": True,
+                "text": f"{error_message} (오류: {str(err)})",
+                "finished": True
+            }
+
+            logger.info(f"[DEBUG] [process_chat_stream] 오류 응답 생성: {json.dumps(error_data, ensure_ascii=False)}")
+
+            # SSE 형식으로 오류 전송
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+
+        return StreamingResponse(
+            error_stream(),
+            media_type="text/event-stream; charset=utf-8"
         )
-        logger.debug(f"[process_chat_stream] lang:{request.chat.lang}, "
-                     f"llm request json: {chat_llm_request.model_dump_json()[:300]}...")
-
-        # Call the streaming LLM endpoint
-        streaming_url = settings.api_interface.chat_llm_stream_request_url
-        if not streaming_url:
-            # Default to adding "/stream" to the base LLM URL if specific stream URL not provided
-            streaming_url = f"{settings.api_interface.chat_llm_request_url}/stream"
-
-        # We'll need to pass the StreamingResponse directly from the LLM service
-        # This requires a modified restclient method that can pass through a StreamingResponse
-        stream_response = await rc.restapi_stream_request_async(
-            streaming_url,
-            chat_llm_request.model_dump(),
-            background_tasks=background_tasks
-        )
-
-        return stream_response
 
     except Exception as err:
         logger.error(f"[process_chat_stream] error: {err}\n[session_id]: {request.meta.session_id}", exc_info=True)
