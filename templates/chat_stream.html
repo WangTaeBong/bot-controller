@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Streaming Chat Demo</title>
+    <!-- markdown-it 라이브러리 추가 (마크다운 파싱용) -->
+    <script src="/static/js/markdown-it.min.js"></script>
+    <!-- 코드 하이라이팅 라이브러리 (선택사항) -->
+    <script src="/static/js/highlight.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -52,10 +56,8 @@
 
         .system-message {
             background-color: #f1f0f0;
-        }
-
-        .system-message.streaming {
-            border-left: 3px solid #4CAF50;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .input-area {
@@ -135,14 +137,85 @@
             margin-left: 10px;
         }
 
+        /* 코드 블록 스타일링 */
         .system-message pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            background-color: #f1f1f1;
-            padding: 8px;
+            background-color: #f4f4f4;
+            padding: 12px;
             border-radius: 4px;
+            overflow-x: auto;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+        }
+
+        .system-message code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            font-size: 0.9em;
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .system-message pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        /* 테이블 스타일링 */
+        .system-message table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .system-message th, .system-message td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        .system-message th {
+            background-color: #f4f4f4;
+            text-align: left;
+        }
+
+        /* 인용구 스타일링 */
+        .system-message blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 10px;
+            margin-left: 0;
+            color: #666;
+        }
+
+        /* 제목 스타일링 */
+        .system-message h1, .system-message h2, .system-message h3,
+        .system-message h4, .system-message h5, .system-message h6 {
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        /* 목록 스타일링 */
+        .system-message ul, .system-message ol {
+            padding-left: 20px;
             margin: 5px 0;
-            font-family: monospace;
+        }
+
+        /* 구분선 스타일링 */
+        .system-message hr {
+            border: 0;
+            height: 1px;
+            background: #ddd;
+            margin: 10px 0;
+        }
+
+        /* 스트리밍 상태의 메시지에 적용할 스타일 */
+        .system-message.streaming {
+            border-left: 3px solid #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { border-left-color: #4CAF50; }
+            50% { border-left-color: #2E7D32; }
+            100% { border-left-color: #4CAF50; }
         }
 
         .debug-panel {
@@ -170,53 +243,6 @@
             margin-top: 10px;
             text-align: center;
             font-size: 12px;
-        }
-
-        .markdown table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 1em 0;
-        }
-
-        .markdown th,
-        .markdown td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-
-        .markdown th {
-            background-color: #f2f2f2;
-        }
-
-        .markdown code {
-            background-color: #f5f5f5;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
-
-        .markdown pre {
-            background-color: #f5f5f5;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
-        }
-
-        .markdown h1, .markdown h2, .markdown h3, .markdown h4 {
-            margin-top: 1em;
-            margin-bottom: 0.5em;
-        }
-
-        .markdown ul, .markdown ol {
-            padding-left: 20px;
-        }
-
-        .markdown blockquote {
-            border-left: 4px solid #ccc;
-            padding-left: 10px;
-            margin-left: 0;
-            color: #666;
         }
 
         .reference-section {
@@ -305,57 +331,44 @@
     </div>
 
     <script>
-        // 마크다운 변환 유틸리티 (간단한 구현)
-        const markdownToHTML = (text) => {
+        // 마크다운 파싱을 위한 초기화 (페이지 로드 시 실행)
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMarkdown();
+            generateSessionId();
+        });
+
+        // markdown-it 인스턴스 초기화
+        let md;
+        function initializeMarkdown() {
+            md = window.markdownit({
+                html: true,         // HTML 태그 허용
+                breaks: true,       // 줄바꿈을 <br>로 변환
+                linkify: true,      // URL을 자동으로 링크로 변환
+                typographer: true,  // 인용부호 및 대시 등의 변환 지원
+                highlight: function(str, lang) {
+                    // 코드 블록 하이라이팅 기능 추가
+                    if (lang && hljs && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(lang, str).value;
+                        } catch (__) {}
+                    }
+                    return ''; // 기본 하이라이팅 사용
+                }
+            });
+
+            debugLog("Markdown parser initialized");
+        }
+
+        // 마크다운을 HTML로 변환하는 재사용 가능한 함수
+        function renderMarkdown(text) {
             if (!text) return '';
-
-            // 코드 블록 처리
-            text = text.replace(/```(\w*)\n([\s\S]+?)```/g, function(match, language, code) {
-                return `<pre><code class="${language}">${code}</code></pre>`;
-            });
-
-            // 인라인 코드
-            text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-            // 표 처리
-            const tableRegex = /\|(.+)\|\n\|(?:[-:]+\|)+\n((?:\|.+\|\n?)+)/g;
-            text = text.replace(tableRegex, function(match, header, rows) {
-                const headers = header.split('|').map(h => h.trim()).filter(Boolean);
-                const headerRow = headers.map(h => `<th>${h}</th>`).join('');
-
-                const tableRows = rows.trim().split('\n').map(row => {
-                    const cells = row.split('|').map(cell => cell.trim()).filter(Boolean);
-                    return `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
-                }).join('');
-
-                return `<table><thead><tr>${headerRow}</tr></thead><tbody>${tableRows}</tbody></table>`;
-            });
-
-            // 제목
-            text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-            text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-            text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-
-            // 굵게 & 기울임
-            text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-            text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-            // 목록
-            text = text.replace(/^\s*[\-\*]\s+(.*)/gm, '<li>$1</li>');
-            text = text.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-
-            // 번호 목록
-            text = text.replace(/^\s*\d+\.\s+(.*)/gm, '<li>$1</li>');
-            text = text.replace(/(<li>.*<\/li>\n?)+/g, '<ol>$&</ol>');
-
-            // 인용구
-            text = text.replace(/^\>\s+(.*)/gm, '<blockquote>$1</blockquote>');
-
-            // 줄바꿈
-            text = text.replace(/\n/g, '<br>');
-
-            return text;
-        };
+            try {
+                return md.render(text || '');
+            } catch (e) {
+                console.error("Markdown rendering error:", e);
+                return `<p>Error rendering markdown: ${e.message}</p><pre>${text}</pre>`;
+            }
+        }
 
         // 디버그 로깅 함수
         function debugLog(message) {
@@ -378,11 +391,6 @@
                 toggle.textContent = '디버그 패널 숨기기';
             }
         }
-
-        // Initialize when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            generateSessionId();
-        });
 
         // Generate a UUID for session ID
         function generateUUID() {
@@ -419,30 +427,21 @@
             }
         }
 
+        // 스트리밍 메시지 처리를 위한 전역 변수
+        let currentStreamingMessage = null;
+        let currentStreamText = '';
+
         // Add message to chat
         function addMessage(isUser, content) {
             const chatMessages = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = isUser ? 'message user-message' : 'message system-message';
 
-            // 유저 메시지는 간단히 처리
+            // 사용자 메시지는 그대로, 시스템 메시지는 마크다운 렌더링 적용
             if (isUser) {
                 messageDiv.textContent = content;
             } else {
-                // 시스템 메시지는 마크다운으로 변환
-                messageDiv.innerHTML = `<div class="markdown">${markdownToHTML(content)}</div>`;
-
-                // 참고 문헌 섹션이 있는지 확인 (complete_response에 포함된 경우)
-                if (content.includes('---------\n[참고문헌]')) {
-                    const parts = content.split('---------\n');
-                    const mainContent = parts[0];
-                    const references = parts[1];
-
-                    messageDiv.innerHTML = `
-                        <div class="markdown">${markdownToHTML(mainContent)}</div>
-                        <div class="reference-section">${markdownToHTML(references)}</div>
-                    `;
-                }
+                messageDiv.innerHTML = renderMarkdown(content);
             }
 
             chatMessages.appendChild(messageDiv);
@@ -459,11 +458,11 @@
             document.getElementById('typingIndicator').style.display = 'none';
         }
 
-        // Process stream data - 개선된 버전
+        // Process stream data - 전체 재작성
         function processStreamData(event) {
             try {
                 // 수신된 데이터가 없으면 무시
-                if (!event.data.trim()) {
+                if (!event.data || !event.data.trim()) {
                     return;
                 }
 
@@ -475,44 +474,37 @@
 
                 // JSON 파싱
                 const data = JSON.parse(jsonStr);
-                debugLog(`Received: ${JSON.stringify(data).substring(0, 100)}...`);
+                debugLog(`Received stream data: ${JSON.stringify(data).substring(0, 100)}...`);
 
-                // 완전한 응답 처리
+                // 완전한 응답 처리 (complete_response)
                 if (data.complete_response) {
                     debugLog(`Complete response received`);
+                    const completeText = data.complete_response;
 
-                    // 기존 스트리밍 응답 제거 (완전한 응답으로 대체)
-                    const systemMessage = document.querySelector('.system-message.streaming');
-                    if (systemMessage) {
-                        // 스트리밍 상태 제거
-                        systemMessage.classList.remove('streaming');
+                    // 기존 스트리밍 메시지 요소 찾기
+                    if (currentStreamingMessage) {
+                        // 스트리밍 클래스 제거
+                        currentStreamingMessage.classList.remove('streaming');
 
-                        // complete_response로 내용 교체
-                        const markdownDiv = systemMessage.querySelector('.markdown') || systemMessage;
+                        // 마크다운으로 완전한 응답 렌더링
+                        const markdownHtml = renderMarkdown(completeText);
+                        currentStreamingMessage.innerHTML = markdownHtml;
 
-                        // 참고 문헌 섹션이 있는지 확인
-                        if (data.complete_response.includes('---------')) {
-                            const parts = data.complete_response.split('---------');
-                            const mainContent = parts[0];
-                            const references = parts[1] || '';
-
-                            systemMessage.innerHTML = `
-                                <div class="markdown">${markdownToHTML(mainContent)}</div>
-                                <div class="reference-section">${markdownToHTML(references)}</div>
-                            `;
-                        } else {
-                            markdownDiv.innerHTML = markdownToHTML(data.complete_response);
-                        }
+                        // 전역 변수 초기화
+                        currentStreamText = '';
+                        currentStreamingMessage = null;
+                    } else {
+                        // 스트리밍 메시지 요소가 없는 경우 새로 생성
+                        const newMessage = document.createElement('div');
+                        newMessage.className = 'message system-message';
+                        newMessage.innerHTML = renderMarkdown(completeText);
+                        document.getElementById('chatMessages').appendChild(newMessage);
                     }
 
                     // 입력 활성화
                     document.getElementById('userInput').disabled = false;
                     document.getElementById('sendButton').disabled = false;
-
-                    // 입력에 포커스
                     document.getElementById('userInput').focus();
-
-                    // 타이핑 표시기 숨기기
                     hideTypingIndicator();
 
                     return;
@@ -520,12 +512,19 @@
 
                 // 오류 처리
                 if (data.error) {
-                    debugLog(`Error: ${data.text || data.message || "Unknown error"}`);
+                    debugLog(`Error: ${data.text || "Unknown error"}`);
 
                     const errorElement = document.createElement('div');
                     errorElement.className = 'message system-message';
                     errorElement.innerHTML = `<strong>Error:</strong> ${data.text || data.message || "Unknown error"}`;
                     document.getElementById('chatMessages').appendChild(errorElement);
+
+                    // 현재 스트리밍 메시지 삭제 (있는 경우)
+                    if (currentStreamingMessage) {
+                        currentStreamingMessage.remove();
+                        currentStreamingMessage = null;
+                        currentStreamText = '';
+                    }
 
                     // 입력 활성화
                     document.getElementById('userInput').disabled = false;
@@ -537,39 +536,21 @@
 
                 // 텍스트 업데이트 처리
                 if (data.text !== undefined) {
-                    // 시스템 메시지 컨테이너 검색
-                    let systemMessage = document.querySelector('.system-message.streaming');
-
-                    if (!systemMessage) {
-                        // 첫 번째 청크일 경우 새 메시지 생성
-                        systemMessage = document.createElement('div');
-                        systemMessage.className = 'message system-message streaming';
-
-                        // 마크다운 컨테이너 추가
-                        const markdownDiv = document.createElement('div');
-                        markdownDiv.className = 'markdown';
-                        systemMessage.appendChild(markdownDiv);
-
-                        // 응답 영역에 추가
-                        document.getElementById('chatMessages').appendChild(systemMessage);
-                        window.currentStreamText = '';
+                    // 현재 스트리밍 메시지 없으면 새로 생성
+                    if (!currentStreamingMessage) {
+                        currentStreamingMessage = document.createElement('div');
+                        currentStreamingMessage.className = 'message system-message streaming';
+                        document.getElementById('chatMessages').appendChild(currentStreamingMessage);
+                        currentStreamText = '';
                     }
 
-                    // 누적된 텍스트에 추가
-                    window.currentStreamText = (window.currentStreamText || '') + data.text;
+                    // 누적 텍스트에 새 텍스트 추가
+                    currentStreamText += data.text;
 
-                    // 마크다운 변환 및 표시
-                    const markdownDiv = systemMessage.querySelector('.markdown');
-                    markdownDiv.innerHTML = markdownToHTML(window.currentStreamText);
+                    // 마크다운으로 렌더링
+                    currentStreamingMessage.innerHTML = renderMarkdown(currentStreamText);
 
-                    // 커서 효과 추가 (스트리밍 중 표시)
-                    if (!data.finished) {
-                        const cursor = document.createElement('span');
-                        cursor.className = 'cursor';
-                        markdownDiv.appendChild(cursor);
-                    }
-
-                    // 자동 스크롤
+                    // 스크롤 자동 이동
                     document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
                 }
 
@@ -577,28 +558,23 @@
                 if (data.finished) {
                     debugLog(`Stream finished`);
 
-                    // 스트리밍 클래스 제거
-                    const systemMessage = document.querySelector('.system-message.streaming');
-                    if (systemMessage) {
-                        systemMessage.classList.remove('streaming');
+                    if (currentStreamingMessage) {
+                        // 스트리밍 클래스 제거
+                        currentStreamingMessage.classList.remove('streaming');
 
-                        // 커서 제거
-                        const cursor = systemMessage.querySelector('.cursor');
-                        if (cursor) cursor.remove();
+                        // 마지막으로 한번 더 마크다운 렌더링
+                        currentStreamingMessage.innerHTML = renderMarkdown(currentStreamText);
                     }
+
+                    // 전역 변수 초기화
+                    currentStreamingMessage = null;
+                    currentStreamText = '';
 
                     // 입력 활성화
                     document.getElementById('userInput').disabled = false;
                     document.getElementById('sendButton').disabled = false;
-
-                    // 입력 포커스
                     document.getElementById('userInput').focus();
-
-                    // 타이핑 표시기 숨기기
                     hideTypingIndicator();
-
-                    // 전역 변수 정리
-                    window.currentStreamText = null;
                 }
             } catch (error) {
                 console.error('Error processing stream data:', error);
@@ -684,6 +660,11 @@
 
                     if (done) {
                         debugLog("Stream complete");
+                        if (currentStreamingMessage) {
+                            currentStreamingMessage.classList.remove('streaming');
+                            currentStreamingMessage = null;
+                            currentStreamText = '';
+                        }
                         hideTypingIndicator();
                         document.getElementById('userInput').disabled = false;
                         document.getElementById('sendButton').disabled = false;
@@ -699,7 +680,7 @@
 
                     for (const event of events) {
                         if (event.trim()) {
-                            debugLog(`Received event: ${event.substring(0, 50)}...`);
+                            // SSE 형식 처리
                             processStreamData({ data: event });
                         }
                     }
