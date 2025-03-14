@@ -483,15 +483,25 @@
 
                     // 기존 스트리밍 메시지 요소 찾기
                     if (currentStreamingMessage) {
-                        // 스트리밍 클래스 제거
-                        currentStreamingMessage.classList.remove('streaming');
+                        // 스트리밍 응답과 complete_response가 동일한지 확인
+                        if (currentStreamText.trim() === completeText.trim()) {
+                            debugLog(`Complete response is identical to streaming response, no update needed`);
+                            // 스트리밍 클래스만 제거하고 내용은 업데이트하지 않음
+                            currentStreamingMessage.classList.remove('streaming');
+                        } else {
+                            debugLog(`Complete response differs from streaming response, updating content`);
+                            // 스트리밍 클래스 제거
+                            currentStreamingMessage.classList.remove('streaming');
 
-                        // 마크다운으로 완전한 응답 렌더링
-                        const markdownHtml = renderMarkdown(completeText);
-                        currentStreamingMessage.innerHTML = markdownHtml;
+                            // 마크다운으로 완전한 응답 렌더링
+                            const markdownHtml = renderMarkdown(completeText);
+                            currentStreamingMessage.innerHTML = markdownHtml;
 
-                        // 전역 변수 초기화
-                        currentStreamText = '';
+                            // 전역 변수 업데이트
+                            currentStreamText = completeText;
+                        }
+
+                        // 스트리밍 상태 종료
                         currentStreamingMessage = null;
                     } else {
                         // 스트리밍 메시지 요소가 없는 경우 새로 생성
@@ -556,25 +566,34 @@
 
                 // 메시지 완료 처리
                 if (data.finished) {
-                    debugLog(`Stream finished`);
+                    debugLog(`Stream finished - 완전한 응답을 기다리는 중...`);
 
                     if (currentStreamingMessage) {
-                        // 스트리밍 클래스 제거
-                        currentStreamingMessage.classList.remove('streaming');
-
-                        // 마지막으로 한번 더 마크다운 렌더링
+                        // 스트리밍 표시는 유지하되 텍스트는 완성
+                        // complete_response가 올 때까지 스트리밍 표시 유지
                         currentStreamingMessage.innerHTML = renderMarkdown(currentStreamText);
+
+                        // 잠시 대기 (complete_response 기다림)
+                        setTimeout(() => {
+                            // 만약 complete_response가 오지 않았다면 스트리밍 상태 종료
+                            if (currentStreamingMessage && currentStreamingMessage.classList.contains('streaming')) {
+                                currentStreamingMessage.classList.remove('streaming');
+                                currentStreamingMessage = null;
+
+                                // 입력 활성화
+                                document.getElementById('userInput').disabled = false;
+                                document.getElementById('sendButton').disabled = false;
+                                document.getElementById('userInput').focus();
+                                hideTypingIndicator();
+                            }
+                        }, 1000); // 1초 대기
+                    } else {
+                        // 입력 활성화
+                        document.getElementById('userInput').disabled = false;
+                        document.getElementById('sendButton').disabled = false;
+                        document.getElementById('userInput').focus();
+                        hideTypingIndicator();
                     }
-
-                    // 전역 변수 초기화
-                    currentStreamingMessage = null;
-                    currentStreamText = '';
-
-                    // 입력 활성화
-                    document.getElementById('userInput').disabled = false;
-                    document.getElementById('sendButton').disabled = false;
-                    document.getElementById('userInput').focus();
-                    hideTypingIndicator();
                 }
             } catch (error) {
                 console.error('Error processing stream data:', error);
