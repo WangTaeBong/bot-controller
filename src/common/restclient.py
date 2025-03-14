@@ -254,29 +254,131 @@ class RestClient:
                         # 디버깅을 위한 카운터
                         chunk_count = 0
 
-                        # 단순화된 청크 처리
+                        # SSE 형식 수신 버퍼
+                        buffer = ""
+
+                        # 마지막 complete_response 확인 플래그
+                        complete_response_received = False
+
+                        # 빈 텍스트 카운트
+                        empty_text_count = 0
+
+                        # 청크 처리 개선
                         async for chunk in response.content:
-                            chunk_count += 1
                             if not chunk:
                                 continue
 
+                            chunk_count += 1
                             chunk_text = chunk.decode('utf-8')
                             logging.debug(f"[{session_id}] 청크 #{chunk_count} 수신: {len(chunk_text)} 바이트")
 
-                            # 청크를 그대로 클라이언트에 전달 (SSE 형식 유지)
-                            if chunk_text.strip():
-                                yield chunk_text
+                            # 버퍼에 추가
+                            buffer += chunk_text
 
-                                # 디버깅: 완료 이벤트 확인
-                                if '"finished": true' in chunk_text.lower():
-                                    logging.info(f"[{session_id}] 완료 이벤트 감지됨: {chunk_text}")
+                            # 완전한 JSON 객체 검색
+                            while buffer.strip():
+                                # 1. data: 접두사 확인
+                                if buffer.lstrip().startswith('data: '):
+                                    # SSE 형식의 데이터
+                                    if '\n\n' in buffer:
+                                        # 완전한 SSE 이벤트 발견
+                                        parts = buffer.split('\n\n', 1)
+                                        event = parts[0].strip()
+                                        buffer = parts[1]
 
-                        # 모든 청크 처리 완료
-                        logging.info(f"[{session_id}] 모든 청크({chunk_count}개) 처리 완료")
+                                        # data: 부분 추출
+                                        event_data = event[6:].strip()  # 'data: ' 제거
 
-                        # 혹시 종료 이벤트가 없었다면 추가 전송
-                        if chunk_count > 0:
+                                        try:
+                                            # JSON 파싱 시도
+                                            json_obj = json.loads(event_data)
+
+                                            # 1. complete_response 확인
+                                            if "complete_response" in json_obj:
+                                                complete_response_received = True
+                                                yield f"data: {event_data}\n\n"
+                                                continue
+
+                                            # 2. 빈 텍스트 필터링
+                                            if json_obj.get("text", "") == "" and json_obj.get("finished", False):
+                                                # 마지막 종료 신호이고 complete_response를 이미 받았으면 무시
+                                                if complete_response_received:
+                                                    continue
+
+                                                # 마지막 종료 신호는 한 번만 보냄
+                                                empty_text_count += 1
+                                                if empty_text_count > 1:
+                                                    continue
+
+                                            # 유효한 데이터 전송
+                                            yield f"data: {event_data}\n\n"
+                                            logging.debug(f"[{session_id}] 이벤트 전송: {event_data[:50]}...")
+                                        except json.JSONDecodeError:
+                                            # JSON이 아니지만 SSE 형식이면 그대로 전달
+                                            yield f"data: {event_data}\n\n"
+                                    else:
+                                        # 불완전한 이벤트, 더 많은 데이터 대기
+                                        break
+                                else:
+                                    # 2. 일반 JSON 데이터
+                                    try:
+                                        # JSON 객체를 찾기 위한 시도
+                                        json_str = buffer.strip()
+                                        json_obj = json.loads(json_str)
+
+                                        # complete_response 확인
+                                        if "complete_response" in json_obj:
+                                            complete_response_received = True
+                                            yield f"data: {json_str}\n\n"
+                                            buffer = ""
+                                            continue
+
+                                        # 빈 텍스트 필터링
+                                        if json_obj.get("text", "") == "" and json_obj.get("finished", False):
+                                            # 마지막 종료 신호이고 complete_response를 이미 받았으면 무시
+                                            if complete_response_received:
+                                                buffer = ""
+                                                continue
+
+                                            # 마지막 종료 신호는 한 번만 보냄
+                                            empty_text_count += 1
+                                            if empty_text_count > 1:
+                                                buffer = ""
+                                                continue
+
+                                        # 유효한 데이터 전송
+                                        yield f"data: {json_str}\n\n"
+                                        buffer = ""
+                                    except json.JSONDecodeError:
+                                        # JSON 파싱 실패, 더 많은 데이터가 필요하거나 형식이 잘못됨
+                                        if len(buffer) > 1024:
+                                            # 버퍼가 너무 크면 텍스트로 전송하고 비움
+                                            if buffer.strip():  # 비어있지 않은 경우만
+                                                yield f"data: {json.dumps({'text': buffer.strip()}, ensure_ascii=False)}\n\n"
+                                            buffer = ""
+                                        break
+
+                        # 남은 버퍼 처리 (비어있지 않은 경우만)
+                        if buffer.strip():
+                            try:
+                                json_obj = json.loads(buffer.strip())
+
+                                # complete_response 또는 빈 텍스트 종료 신호 필터링
+                                if not ("complete_response" in json_obj or
+                                        (json_obj.get("text", "") == "" and json_obj.get("finished", False) and
+                                         (complete_response_received or empty_text_count > 0))):
+                                    yield f"data: {json.dumps(json_obj, ensure_ascii=False)}\n\n"
+                            except json.JSONDecodeError:
+                                # JSON이 아니고 비어있지 않은 경우만 전송
+                                if buffer.strip():
+                                    yield f"data: {json.dumps({'text': buffer.strip()}, ensure_ascii=False)}\n\n"
+
+                        # 종료 이벤트는 complete_response를 받지 않았고 아직 보내지 않은 경우에만 전송
+                        if not complete_response_received and empty_text_count == 0:
+                            logging.info(f"[{session_id}] 종료 이벤트 전송")
                             yield f"data: {json.dumps({'text': '', 'finished': True}, ensure_ascii=False)}\n\n"
+
+                        logging.info(f"[{session_id}] 모든 청크({chunk_count}개) 처리 완료")
 
             except Exception as e:
                 logging.error(f"[{session_id}] 스트리밍 오류: {str(e)}", exc_info=True)
@@ -291,7 +393,7 @@ class RestClient:
             stream_generator(),
             media_type="text/event-stream; charset=utf-8",
             headers={
-                "Cache-Control": "no-cache",
+                "Cache-Control": "no-cache, no-transform",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no"
             }
