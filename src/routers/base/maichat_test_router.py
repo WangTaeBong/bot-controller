@@ -12,6 +12,11 @@ async def maichat_test_page(request: Request):
     return templates.TemplateResponse("maichat_test_ui.html", {"request": request})
 
 
+@maichat_test_router.get("/maichat_stream_test_ui", include_in_schema=False, response_class=HTMLResponse)
+async def maichat_test_page(request: Request):
+    return templates.TemplateResponse("chat_stream.html", {"request": request})
+
+
 # 파일 업로드 엔드포인트
 documents_dir = Path("uploaded_documents").resolve()
 documents_dir.mkdir(parents=True, exist_ok=True)

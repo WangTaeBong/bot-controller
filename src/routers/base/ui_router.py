@@ -47,6 +47,7 @@ async def menu_page(request: Request):
             <a href='/custom-swagger' class='btn' style='display: inline-block; margin: 10px; padding: 10px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;'>Swagger UI</a><br>
             <a href='/health_check_ui' class='btn' style='display: inline-block; margin: 10px; padding: 10px; background: #28a745; color: white; text-decoration: none; border-radius: 4px;'>Health Check</a><br>
             <a href='/maichat_test_ui' class='btn' style='display: inline-block; margin: 10px; padding: 10px; background: #28a745; color: white; text-decoration: none; border-radius: 4px;'>MAI-Chat Test</a><br>
+            <a href='/maichat_stream_test_ui' class='btn' style='display: inline-block; margin: 10px; padding: 10px; background: #28a745; color: white; text-decoration: none; border-radius: 4px;'>MAI-Chat Stream Test</a><br>
         </div>
     """
 
