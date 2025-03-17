@@ -270,7 +270,6 @@ class RestClient:
 
                             chunk_count += 1
                             chunk_text = chunk.decode('utf-8')
-                            logging.debug(f"[{session_id}] 청크 #{chunk_count} 수신: {len(chunk_text)} 바이트")
 
                             # 버퍼에 추가
                             buffer += chunk_text

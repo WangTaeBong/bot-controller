@@ -554,7 +554,7 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
         StreamingResponse: A streaming response that sends text incrementally as SSE
     """
     session_id = request.meta.session_id
-    logger.info(f"[DEBUG] [process_chat_stream] 함수 시작: [session_id]: {session_id}")
+    logger.info(f"[process_chat_stream] 함수 시작: [session_id]: {session_id}")
 
     try:
         # 메타데이터 구성
@@ -565,21 +565,16 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
             rag_sys_info=request.meta.rag_sys_info,
         )
 
-        logger.info(
-            f"[DEBUG] [process_chat_stream] 메타데이터 생성 완료: company_id={meta.company_id}, rag_sys_info={meta.rag_sys_info}")
-
-        # 채팅 데이터 준비
-        logger.info(f"[DEBUG] [process_chat_stream] 원본 요청 데이터: {request.model_dump_json()[:300]}...")
+        logger.debug(
+            f"[process_chat_stream] 메타데이터 생성 완료: company_id={meta.company_id}, rag_sys_info={meta.rag_sys_info}")
 
         try:
             chat_data = request.chat.dict(exclude={"lang"})
-            logger.info(f"[DEBUG] [process_chat_stream] 채팅 데이터 추출 완료: {chat_data}")
 
             chat_request = ChatRequest(
                 meta=meta,
                 chat=ChatRequestData.model_validate(chat_data)
             )
-            logger.info(f"[DEBUG] [process_chat_stream] 채팅 요청 객체 생성 완료")
 
         except Exception as e:
             logger.error(f"[DEBUG] [process_chat_stream] 채팅 데이터 변환 중 오류: {str(e)}")
@@ -588,17 +583,17 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
         # FAQ 쿼리 최적화
         try:
             original_query = request.chat.user
-            logger.info(f"[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 전 원본 쿼리: {original_query}")
+            logger.debug(f"[process_chat_stream] FAQ 쿼리 최적화 전 원본 쿼리: {original_query}")
 
             faq_query = optimize_category_faq_query(request)
             if faq_query and faq_query != original_query:
-                logger.info(f"[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 결과: {faq_query}")
+                logger.debug(f"[process_chat_stream] LLM 쿼리 최적화 결과: {faq_query}")
                 chat_request.chat.user = faq_query
             else:
-                logger.info("[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 적용되지 않음")
+                logger.debug("[process_chat_stream] LLM 쿼리 최적화 적용되지 않음")
 
         except Exception as e:
-            logger.error(f"[DEBUG] [process_chat_stream] FAQ 쿼리 최적화 중 오류: {str(e)}")
+            logger.error(f"[process_chat_stream] FAQ 쿼리 최적화 중 오류: {str(e)}")
             # FAQ 최적화 실패해도 계속 진행
             pass
 
@@ -615,43 +610,39 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
                     payload=[]  # For streaming, we'll use the LLM's retriever directly
                 )
             )
-            logger.info(f"[DEBUG] [process_chat_stream] LLM 요청 객체 생성 완료: lang={request.chat.lang}")
-            logger.info(f"[DEBUG] [process_chat_stream] LLM 요청 JSON: {chat_llm_request.model_dump_json()[:300]}...")
+            logger.debug(f"[process_chat_stream] LLM 요청 객체 생성 완료: lang={request.chat.lang}")
 
         except Exception as e:
-            logger.error(f"[DEBUG] [process_chat_stream] LLM 요청 객체 생성 중 오류: {str(e)}")
+            logger.error(f"[process_chat_stream] LLM 요청 객체 생성 중 오류: {str(e)}")
             raise
 
         # 스트리밍 URL 결정
         try:
             # 설정에서 스트리밍 URL 확인
             streaming_url = getattr(settings.api_interface, 'chat_llm_stream_request_url', None)
-            logger.info(f"[DEBUG] [process_chat_stream] 설정의 스트리밍 URL: {streaming_url}")
 
             if not streaming_url:
                 # 기본 LLM URL에 "/stream" 추가
                 base_llm_url = getattr(settings.api_interface, 'chat_llm_request_url', None)
-                logger.info(f"[DEBUG] [process_chat_stream] 기본 LLM URL: {base_llm_url}")
+                logger.debug(f"[process_chat_stream] 기본 LLM URL: {base_llm_url}")
 
                 if not base_llm_url:
-                    logger.error("[DEBUG] [process_chat_stream] 오류: LLM URL이 설정되지 않음")
+                    logger.error("[process_chat_stream] 오류: LLM URL이 설정되지 않음")
                     raise ValueError("LLM URL configuration missing")
 
                 streaming_url = f"{base_llm_url}/stream"
 
-            logger.info(f"[DEBUG] [process_chat_stream] 최종 스트리밍 URL: {streaming_url}")
-
         except Exception as e:
-            logger.error(f"[DEBUG] [process_chat_stream] 스트리밍 URL 결정 중 오류: {str(e)}")
+            logger.error(f"[process_chat_stream] 스트리밍 URL 결정 중 오류: {str(e)}")
             raise
 
         # 스트리밍 요청 전송
         try:
-            logger.info(f"[DEBUG] [process_chat_stream] 스트리밍 요청 시작: URL={streaming_url}")
+            logger.debug(f"[process_chat_stream] 스트리밍 요청 시작: URL={streaming_url}")
 
             # RestClient를 통해 스트리밍 요청 전송
             request_data = chat_llm_request.model_dump()
-            logger.info(f"[DEBUG] [process_chat_stream] 요청 데이터: {str(request_data)[:300]}...")
+            logger.debug(f"[process_chat_stream] 요청 데이터: {str(request_data)[:300]}...")
 
             # 실제 스트리밍 요청 전송
             stream_response = await rc.restapi_stream_request_async(
@@ -660,14 +651,14 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
                 background_tasks=background_tasks
             )
 
-            logger.info(f"[DEBUG] [process_chat_stream] 스트리밍 응답 객체 받음: {type(stream_response)}")
-            logger.info(f"[DEBUG] [process_chat_stream] 스트리밍 응답 객체 받음: {stream_response}")
+            logger.debug(f"[process_chat_stream] 스트리밍 응답 객체 받음: {type(stream_response)}")
+            logger.debug(f"[process_chat_stream] 스트리밍 응답 객체 받음: {stream_response}")
 
             # 응답에 추가 헤더 설정
             if hasattr(stream_response, 'headers'):
                 stream_response.headers["Cache-Control"] = "no-cache"
                 stream_response.headers["Connection"] = "keep-alive"
-                logger.info("[DEBUG] [process_chat_stream] 응답 헤더 설정 완료")
+                logger.debug("[process_chat_stream] 응답 헤더 설정 완료")
 
             return stream_response
 

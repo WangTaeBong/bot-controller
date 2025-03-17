@@ -243,6 +243,7 @@ async def chat_stream_req(request: ChatRequest, background_tasks: BackgroundTask
             streaming_response.headers["Cache-Control"] = "no-cache"
             streaming_response.headers["Connection"] = "keep-alive"
             streaming_response.headers["X-Accel-Buffering"] = "no"  # NGINX 프록시일 경우 버퍼링 방지
+            streaming_response.headers["Transfer-Encoding"] = "chunked"
 
         return streaming_response
 

@@ -267,9 +267,39 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
         }
+
+        /* 고정된 메인 메뉴 버튼 스타일 */
+        #mainMenuButton {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            margin: 10px 0;
+            background: #28a745;
+            color: #fff;
+            text-decoration: none;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background: #218838;
+        }
     </style>
 </head>
 <body>
+    <!-- 고정된 메인 메뉴 버튼 추가 -->
+    <div id="mainMenuButton">
+        <button class="btn" onclick="location.href='/menu'">메인 메뉴</button>
+    </div>
+
     <h1>MAI-Chat Streaming Demo</h1>
 
     <div class="settings-panel">
