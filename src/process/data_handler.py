@@ -556,6 +556,13 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
     session_id = request.meta.session_id
     logger.info(f"[process_chat_stream] 함수 시작: [session_id]: {session_id}")
 
+    # 사용자 질문 로깅 추가
+    logger.debug(
+        f"[process_chat_stream] User Query: {request.chat.user} "
+        f"[RAG: {request.meta.rag_sys_info}] "
+        f"[Session ID: {request.meta.session_id}]"
+    )
+
     try:
         # 메타데이터 구성
         meta = DocChatCommonMeta(

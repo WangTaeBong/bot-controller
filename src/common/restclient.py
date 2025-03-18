@@ -233,7 +233,7 @@ class RestClient:
 
         async def stream_generator():
             try:
-                timeout = aiohttp.ClientTimeout(total=3600, connect=30, sock_read=300)
+                timeout = aiohttp.ClientTimeout(total=7200, connect=120, sock_read=1200, sock_connect=30)
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     logging.info(f"[{session_id}] 스트리밍 세션 생성됨")
 

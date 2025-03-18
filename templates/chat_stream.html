@@ -292,6 +292,16 @@
         .btn:hover {
             background: #218838;
         }
+
+        /* 새대화 버튼 스타일 */
+        .new-chat-btn {
+            background-color: #007bff;
+            margin-left: 10px;
+        }
+
+        .new-chat-btn:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -323,7 +333,7 @@
                 <div class="settings-label">Session ID:</div>
                 <div class="settings-input">
                     <input type="text" id="sessionId" style="width: calc(100% - 80px);">
-                    <button onclick="generateSessionId()">Generate</button>
+                    <button onclick="startNewConversation()">새대화</button>
                 </div>
             </div>
             <div class="settings-row">
@@ -447,6 +457,34 @@
         // Generate a new session ID
         function generateSessionId() {
             document.getElementById('sessionId').value = generateUUID();
+        }
+
+        // 새 대화 시작 (세션 ID 새로 생성 + 대화 이력 초기화)
+        function startNewConversation() {
+            // 새로운 세션 ID 생성
+            generateSessionId();
+
+            // 대화 이력 초기화
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+
+            // 시작 메시지 추가
+            const welcomeMessage = document.createElement('div');
+            welcomeMessage.className = 'message system-message';
+            welcomeMessage.textContent = '안녕하세요! 무엇을 도와드릴까요?';
+            chatMessages.appendChild(welcomeMessage);
+
+            // 스트리밍 관련 전역 변수 초기화
+            currentStreamingMessage = null;
+            currentStreamText = '';
+
+            // 입력란 초기화 및 활성화
+            document.getElementById('userInput').value = '';
+            document.getElementById('userInput').disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            hideTypingIndicator();
+
+            debugLog("새 대화가 시작되었습니다. 세션 ID: " + document.getElementById('sessionId').value);
         }
 
         // Toggle settings panel visibility
