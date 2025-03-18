@@ -293,7 +293,7 @@
             <div class="settings-label">Session ID:</div>
             <div class="settings-input">
                 <input type="text" id="sessionId" style="width: calc(100% - 80px);">
-                <button onclick="generateSessionId()">Generate</button>
+                <button onclick="startNewChat()">새대화</button>
             </div>
         </div>
         <div class="settings-row">
@@ -415,6 +415,46 @@
                 v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    }
+
+    // 새대화 시작 함수
+    function startNewChat() {
+        // 새 세션 ID 생성
+        document.getElementById('sessionId').value = generateUUID();
+
+        // 채팅 이력 초기화
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+
+        // 시스템 초기 메시지 추가
+        const initialMessage = document.createElement('div');
+        initialMessage.className = 'message system-message';
+        initialMessage.innerHTML = '안녕하세요! 무엇을 도와드릴까요?';
+        chatMessages.appendChild(initialMessage);
+
+        // 현재 스트리밍 상태 초기화
+        currentStreamingMessage = null;
+        currentStreamText = '';
+
+        // 사용자 입력창 초기화 및 활성화
+        const userInput = document.getElementById('userInput');
+        userInput.value = '';
+        userInput.disabled = false;
+        document.getElementById('sendButton').disabled = false;
+
+        // 이미지 초기화
+        const imagePreview = document.getElementById('imagePreview');
+        const imageRemoveBtn = document.getElementById('imageRemoveBtn');
+        const imageUpload = document.getElementById('imageUpload');
+
+        imagePreview.src = '';
+        imagePreview.style.display = 'none';
+        imageRemoveBtn.style.display = 'none';
+        imageUpload.value = '';
+        uploadedImage = null;
+
+        // 디버그 로그에 기록
+        debugLog('새대화가 시작되었습니다.');
     }
 
     // Generate a new session ID
