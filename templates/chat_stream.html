@@ -45,8 +45,14 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .user-message {
@@ -62,8 +68,14 @@
 
         .input-area {
             display: flex;
+            flex-direction: column;
             padding: 10px;
             background-color: #f1f1f1;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
         }
 
         .input-area input {
@@ -137,87 +149,6 @@
             margin-left: 10px;
         }
 
-        /* 코드 블록 스타일링 */
-        .system-message pre {
-            background-color: #f4f4f4;
-            padding: 12px;
-            border-radius: 4px;
-            overflow-x: auto;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-        }
-
-        .system-message code {
-            font-family: Consolas, Monaco, 'Andale Mono', monospace;
-            font-size: 0.9em;
-            background-color: #f4f4f4;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-
-        .system-message pre code {
-            background-color: transparent;
-            padding: 0;
-        }
-
-        /* 테이블 스타일링 */
-        .system-message table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 10px 0;
-        }
-
-        .system-message th, .system-message td {
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-
-        .system-message th {
-            background-color: #f4f4f4;
-            text-align: left;
-        }
-
-        /* 인용구 스타일링 */
-        .system-message blockquote {
-            border-left: 4px solid #ddd;
-            padding-left: 10px;
-            margin-left: 0;
-            color: #666;
-        }
-
-        /* 제목 스타일링 */
-        .system-message h1, .system-message h2, .system-message h3,
-        .system-message h4, .system-message h5, .system-message h6 {
-            margin-top: 10px;
-            margin-bottom: 5px;
-        }
-
-        /* 목록 스타일링 */
-        .system-message ul, .system-message ol {
-            padding-left: 20px;
-            margin: 5px 0;
-        }
-
-        /* 구분선 스타일링 */
-        .system-message hr {
-            border: 0;
-            height: 1px;
-            background: #ddd;
-            margin: 10px 0;
-        }
-
-        /* 스트리밍 상태의 메시지에 적용할 스타일 */
-        .system-message.streaming {
-            border-left: 3px solid #4CAF50;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { border-left-color: #4CAF50; }
-            50% { border-left-color: #2E7D32; }
-            100% { border-left-color: #4CAF50; }
-        }
-
         .debug-panel {
             margin-top: 20px;
             padding: 10px;
@@ -245,27 +176,64 @@
             font-size: 12px;
         }
 
-        .reference-section {
-            font-size: 0.9em;
+        /* 이미지 관련 스타일 */
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin: 10px 0;
+            display: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            margin-right: 10px;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .image-upload-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5em;
             color: #666;
-            border-top: 1px solid #ddd;
-            margin-top: 1em;
-            padding-top: 0.5em;
+            transition: color 0.3s;
         }
 
-        .cursor {
-            display: inline-block;
-            width: 2px;
-            height: 1em;
-            background-color: #333;
-            margin-left: 2px;
-            animation: blink 1s infinite;
-            vertical-align: middle;
+        .image-upload-btn:hover {
+            color: #333;
         }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
+        .image-remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .image-upload-note {
+            color: #666;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .image-preview-container {
+            position: relative;
+            margin-bottom: 10px;
         }
 
         /* 고정된 메인 메뉴 버튼 스타일 */
@@ -292,255 +260,405 @@
         .btn:hover {
             background: #218838;
         }
-
-        /* 새대화 버튼 스타일 */
-        .new-chat-btn {
-            background-color: #007bff;
-            margin-left: 10px;
-        }
-
-        .new-chat-btn:hover {
-            background-color: #0056b3;
-        }
     </style>
 </head>
 <body>
-    <!-- 고정된 메인 메뉴 버튼 추가 -->
-    <div id="mainMenuButton">
-        <button class="btn" onclick="location.href='/menu'">메인 메뉴</button>
+<!-- 고정된 메인 메뉴 버튼 추가 -->
+<div id="mainMenuButton">
+    <button class="btn" onclick="location.href='/menu'">메인 메뉴</button>
+</div>
+
+<h1>MAI-Chat Streaming Demo</h1>
+
+<div class="settings-panel">
+    <div class="settings-header">
+        <h3>Connection Settings
+            <button class="collapse-button" onclick="toggleSettings()">Hide</button>
+        </h3>
     </div>
-
-    <h1>MAI-Chat Streaming Demo</h1>
-
-    <div class="settings-panel">
-        <div class="settings-header">
-            <h3>Connection Settings <button class="collapse-button" onclick="toggleSettings()">Hide</button></h3>
+    <div id="settingsContent">
+        <div class="settings-row">
+            <div class="settings-label">API Endpoint:</div>
+            <div class="settings-input">
+                <input type="text" id="apiEndpoint" value="/v1/chat/stream" style="width: 100%;">
+            </div>
         </div>
-        <div id="settingsContent">
-            <div class="settings-row">
-                <div class="settings-label">API Endpoint:</div>
-                <div class="settings-input">
-                    <input type="text" id="apiEndpoint" value="/v1/chat/stream" style="width: 100%;">
-                </div>
+        <div class="settings-row">
+            <div class="settings-label">RAG System Info:</div>
+            <div class="settings-input">
+                <input type="text" id="ragSysInfo" value="aicess_hr" style="width: 100%;">
             </div>
-            <div class="settings-row">
-                <div class="settings-label">RAG System Info:</div>
-                <div class="settings-input">
-                    <input type="text" id="ragSysInfo" value="aicess_hr" style="width: 100%;">
-                </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">Session ID:</div>
+            <div class="settings-input">
+                <input type="text" id="sessionId" style="width: calc(100% - 80px);">
+                <button onclick="generateSessionId()">Generate</button>
             </div>
-            <div class="settings-row">
-                <div class="settings-label">Session ID:</div>
-                <div class="settings-input">
-                    <input type="text" id="sessionId" style="width: calc(100% - 80px);">
-                    <button onclick="startNewConversation()">새대화</button>
-                </div>
-            </div>
-            <div class="settings-row">
-                <div class="settings-label">Language:</div>
-                <div class="settings-input">
-                    <select id="language">
-                        <option value="ko">Korean (한국어)</option>
-                        <option value="en">English</option>
-                        <option value="jp">Japanese (日本語)</option>
-                        <option value="cn">Chinese (中文)</option>
-                    </select>
-                </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">Language:</div>
+            <div class="settings-input">
+                <select id="language">
+                    <option value="ko">Korean (한국어)</option>
+                    <option value="en">English</option>
+                    <option value="jp">Japanese (日本語)</option>
+                    <option value="cn">Chinese (中文)</option>
+                </select>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="chat-container">
-        <div class="chat-messages" id="chatMessages">
-            <!-- Messages will be displayed here -->
-            <div class="message system-message">
-                안녕하세요! 무엇을 도와드릴까요?
-            </div>
+<div class="chat-container">
+    <div class="chat-messages" id="chatMessages">
+        <!-- Messages will be displayed here -->
+        <div class="message system-message">
+            안녕하세요! 무엇을 도와드릴까요?
         </div>
-        <div class="typing-indicator" id="typingIndicator">시스템이 응답 중입니다...</div>
-        <div class="input-area">
-            <input type="text" id="userInput" placeholder="메시지를 입력하세요..." onkeypress="handleKeyPress(event)">
+    </div>
+    <div class="typing-indicator" id="typingIndicator">시스템이 응답 중입니다...</div>
+
+    <div class="input-area">
+        <div class="image-preview-container">
+            <img id="imagePreview" class="image-preview" src="" alt="Image Preview">
+            <button id="imageRemoveBtn" class="image-remove-btn" style="display:none;">×</button>
+        </div>
+
+        <div class="input-row">
+            <!-- 이미지 업로드 버튼 추가 -->
+            <div class="file-input-wrapper">
+                <input type="file" id="imageUpload" accept="image/*">
+                <button class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">
+                    📷
+                </button>
+            </div>
+
+            <input type="text" id="userInput" placeholder="메시지를 입력하세요" onkeypress="handleKeyPress(event)">
             <button onclick="sendMessage()" id="sendButton">전송</button>
         </div>
     </div>
+</div>
 
-    <div class="debug-toggle" onclick="toggleDebug()">디버그 패널 표시</div>
-    <div class="debug-panel" id="debugPanel">
-        <h4>디버그 로그</h4>
-        <div class="debug-log" id="debugLog"></div>
-    </div>
+<div class="debug-toggle" onclick="toggleDebug()">디버그 패널 표시</div>
+<div class="debug-panel" id="debugPanel">
+    <h4>디버그 로그</h4>
+    <div class="debug-log" id="debugLog"></div>
+</div>
 
-    <script>
-        // 마크다운 파싱을 위한 초기화 (페이지 로드 시 실행)
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeMarkdown();
-            generateSessionId();
-        });
+<script>
+    // markdown-it 인스턴스 초기화
+    let md;
 
-        // markdown-it 인스턴스 초기화
-        let md;
-        function initializeMarkdown() {
-            md = window.markdownit({
-                html: true,         // HTML 태그 허용
-                breaks: true,       // 줄바꿈을 <br>로 변환
-                linkify: true,      // URL을 자동으로 링크로 변환
-                typographer: true,  // 인용부호 및 대시 등의 변환 지원
-                whitespace: true,   // 추가: 공백 문자 처리 허용
-                highlight: function(str, lang) {
-                    // 코드 블록 하이라이팅 기능 추가
-                    if (lang && hljs && hljs.getLanguage(lang)) {
-                        try {
-                            return hljs.highlight(lang, str).value;
-                        } catch (__) {}
+    function initializeMarkdown() {
+        md = window.markdownit({
+            html: true,         // HTML 태그 허용
+            breaks: true,       // 줄바꿈을 <br>로 변환
+            linkify: true,      // URL을 자동으로 링크로 변환
+            typographer: true,  // 인용부호 및 대시 등의 변환 지원
+            highlight: function (str, lang) {
+                // 코드 블록 하이라이팅 기능 추가
+                if (lang && hljs && hljs.getLanguage(lang)) {
+                    try {
+                        return hljs.highlight(lang, str).value;
+                    } catch (__) {
                     }
-                    return ''; // 기본 하이라이팅 사용
                 }
-            });
-
-            // 추가: 줄바꿈 처리를 위한 플러그인
-            md.use(function(md) {
-                // 기본 줄바꿈 규칙을 수정하여 \n을 더 잘 처리하도록 함
-                md.core.ruler.push('normalize_newlines', function(state) {
-                    // 연속된 줄바꿈을 처리
-                    state.src = state.src.replace(/\n{2,}/g, '\n\n');
-                });
-            });
-
-            debugLog("Markdown parser initialized");
-        }
-
-        // 마크다운을 HTML로 변환하는 재사용 가능한 함수
-        function renderMarkdown(text) {
-            if (!text) return '';
-            try {
-                // 줄바꿈 문자를 정규화
-                text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-                return md.render(text || '');
-            } catch (e) {
-                console.error("Markdown rendering error:", e);
-                return `<p>Error rendering markdown: ${e.message}</p><pre>${text}</pre>`;
+                return ''; // 기본 하이라이팅 사용
             }
+        });
+    }
+
+    // 페이지 로드 시 마크다운 파서 및 세션 ID 초기화
+    document.addEventListener('DOMContentLoaded', function () {
+        initializeMarkdown();
+        generateSessionId();
+    });
+
+    // 마크다운을 HTML로 변환하는 재사용 가능한 함수
+    function renderMarkdown(text) {
+        if (!text) return '';
+        try {
+            return md.render(text || '');
+        } catch (e) {
+            console.error("Markdown rendering error:", e);
+            return `<p>Error rendering markdown: ${e.message}</p><pre>${text}</pre>`;
         }
+    }
 
-        // 디버그 로깅 함수
-        function debugLog(message) {
-            const debugLog = document.getElementById('debugLog');
-            const timestamp = new Date().toLocaleTimeString();
-            debugLog.innerHTML += `<div>[${timestamp}] ${message}</div>`;
-            debugLog.scrollTop = debugLog.scrollHeight;
+    // 디버그 로깅 함수
+    function debugLog(message) {
+        const debugLog = document.getElementById('debugLog');
+        const timestamp = new Date().toLocaleTimeString();
+        debugLog.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+        debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    // 디버그 패널 토글
+    function toggleDebug() {
+        const panel = document.getElementById('debugPanel');
+        const toggle = document.querySelector('.debug-toggle');
+
+        if (panel.style.display === 'block') {
+            panel.style.display = 'none';
+            toggle.textContent = '디버그 패널 표시';
+        } else {
+            panel.style.display = 'block';
+            toggle.textContent = '디버그 패널 숨기기';
         }
+    }
 
-        // 디버그 패널 토글
-        function toggleDebug() {
-            const panel = document.getElementById('debugPanel');
-            const toggle = document.querySelector('.debug-toggle');
+    // Generate a UUID for session ID
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0,
+                v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
 
-            if (panel.style.display === 'block') {
-                panel.style.display = 'none';
-                toggle.textContent = '디버그 패널 표시';
-            } else {
-                panel.style.display = 'block';
-                toggle.textContent = '디버그 패널 숨기기';
-            }
+    // Generate a new session ID
+    function generateSessionId() {
+        document.getElementById('sessionId').value = generateUUID();
+    }
+
+    // Toggle settings panel visibility
+    function toggleSettings() {
+        const settingsContent = document.getElementById('settingsContent');
+        const button = document.querySelector('.collapse-button');
+
+        if (settingsContent.style.display === 'none') {
+            settingsContent.style.display = 'block';
+            button.textContent = 'Hide';
+        } else {
+            settingsContent.style.display = 'none';
+            button.textContent = 'Show';
         }
+    }
 
-        // Generate a UUID for session ID
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0,
-                    v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
+    // Handle Enter key press in input field
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
         }
+    }
 
-        // Generate a new session ID
-        function generateSessionId() {
-            document.getElementById('sessionId').value = generateUUID();
-        }
+    // 스트리밍 메시지 처리를 위한 전역 변수
+    let currentStreamingMessage = null;
+    let currentStreamText = '';
+    let uploadedImage = null;
 
-        // 새 대화 시작 (세션 ID 새로 생성 + 대화 이력 초기화)
-        function startNewConversation() {
-            // 새로운 세션 ID 생성
-            generateSessionId();
-
-            // 대화 이력 초기화
-            const chatMessages = document.getElementById('chatMessages');
-            chatMessages.innerHTML = '';
-
-            // 시작 메시지 추가
-            const welcomeMessage = document.createElement('div');
-            welcomeMessage.className = 'message system-message';
-            welcomeMessage.textContent = '안녕하세요! 무엇을 도와드릴까요?';
-            chatMessages.appendChild(welcomeMessage);
-
-            // 스트리밍 관련 전역 변수 초기화
-            currentStreamingMessage = null;
-            currentStreamText = '';
-
-            // 입력란 초기화 및 활성화
-            document.getElementById('userInput').value = '';
-            document.getElementById('userInput').disabled = false;
-            document.getElementById('sendButton').disabled = false;
-            hideTypingIndicator();
-
-            debugLog("새 대화가 시작되었습니다. 세션 ID: " + document.getElementById('sessionId').value);
-        }
-
-        // Toggle settings panel visibility
-        function toggleSettings() {
-            const settingsContent = document.getElementById('settingsContent');
-            const button = document.querySelector('.collapse-button');
-
-            if (settingsContent.style.display === 'none') {
-                settingsContent.style.display = 'block';
-                button.textContent = 'Hide';
-            } else {
-                settingsContent.style.display = 'none';
-                button.textContent = 'Show';
-            }
-        }
-
-        // Handle Enter key press in input field
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        }
-
-        // 스트리밍 메시지 처리를 위한 전역 변수
-        let currentStreamingMessage = null;
-        let currentStreamText = '';
-
-        // Add message to chat
-        function addMessage(isUser, content) {
-            const chatMessages = document.getElementById('chatMessages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = isUser ? 'message user-message' : 'message system-message';
-
-            // 사용자 메시지는 그대로, 시스템 메시지는 마크다운 렌더링 적용
-            if (isUser) {
-                messageDiv.textContent = content;
-            } else {
-                messageDiv.innerHTML = renderMarkdown(content);
+    // 이미지 업로드 이벤트 리스너 추가
+    document.getElementById('imageUpload').addEventListener('change', function (event) {
+        const file = event.target.files[0];
+        if (file) {
+            // 파일 크기 제한 (예: 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('파일 크기는 5MB를 초과할 수 없습니다.');
+                return;
             }
 
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const imagePreview = document.getElementById('imagePreview');
+                const imageRemoveBtn = document.getElementById('imageRemoveBtn');
+
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+                imageRemoveBtn.style.display = 'flex';
+
+                // Base64 인코딩된 이미지 저장
+                uploadedImage = e.target.result;
+
+                // 이미지 선택 후 입력란에 포커스
+                document.getElementById('userInput').focus();
+            };
+            reader.readAsDataURL(file);
         }
+    });
+
+    // 이미지 제거 버튼 이벤트 리스너
+    document.getElementById('imageRemoveBtn').addEventListener('click', function () {
+        const imagePreview = document.getElementById('imagePreview');
+        const imageRemoveBtn = document.getElementById('imageRemoveBtn');
+        const imageUpload = document.getElementById('imageUpload');
+
+        imagePreview.src = '';
+        imagePreview.style.display = 'none';
+        imageRemoveBtn.style.display = 'none';
+        imageUpload.value = ''; // 파일 입력 초기화
+        uploadedImage = null;
+    });
+
+    // Add message to chat
+    function addMessage(isUser, content) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = isUser ? 'message user-message' : 'message system-message';
+
+        // 사용자 메시지는 그대로, 시스템 메시지는 마크다운 렌더링 적용
+        if (isUser) {
+            messageDiv.textContent = content;
+        } else {
+            messageDiv.innerHTML = renderMarkdown(content);
+        }
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Show typing indicator
+    function showTypingIndicator() {
+        document.getElementById('typingIndicator').style.display = 'block';
+    }
+
+    // Hide typing indicator
+    function hideTypingIndicator() {
+        document.getElementById('typingIndicator').style.display = 'none';
+    }
+
+    // Send message to server
+    function sendMessage() {
+        const userInput = document.getElementById('userInput');
+        const message = userInput.value.trim();
+
+        // 이미지와 메시지 모두 있어야 전송 가능
+        if (uploadedImage && !message) {
+            alert('이미지에 대한 설명을 입력해주세요.');
+            return;
+        }
+
+        // Add user message to chat
+        addMessage(true, message);
+
+        // Clear input field
+        userInput.value = '';
+
+        // Disable input while waiting for response
+        userInput.disabled = true;
+        document.getElementById('sendButton').disabled = true;
 
         // Show typing indicator
-        function showTypingIndicator() {
-            document.getElementById('typingIndicator').style.display = 'block';
-        }
+        showTypingIndicator();
 
-        // Hide typing indicator
-        function hideTypingIndicator() {
-            document.getElementById('typingIndicator').style.display = 'none';
-        }
+        // Prepare request data
+        const apiEndpoint = document.getElementById('apiEndpoint').value;
+        const ragSysInfo = document.getElementById('ragSysInfo').value;
+        const sessionId = document.getElementById('sessionId').value;
+        const language = document.getElementById('language').value;
 
-        // Process stream data - 전체 재작성
-        function processStreamData(event) {
+        const requestData = {
+            meta: {
+                company_id: "mico",
+                dept_class: "dept1",
+                rag_sys_info: ragSysInfo,
+                session_id: sessionId
+            },
+            chat: {
+                lang: language,
+                user: message,
+                category1: "",
+                category2: "",
+                category3: "",
+                payload: [],
+                // 이미지 정보 추가 (이미지가 있는 경우에만)
+                image: uploadedImage ? {
+                    base64: uploadedImage.split(',')[1], // base64 데이터만 추출
+                    mime_type: uploadedImage.split(';')[0].split(':')[1]
+                } : null
+            }
+        };
+
+        debugLog(`Sending request to ${apiEndpoint}`);
+        debugLog(`Request data: ${JSON.stringify(requestData).substring(0, 100)}...`);
+
+        // 이미지 제거
+        const imagePreview = document.getElementById('imagePreview');
+        const imageRemoveBtn = document.getElementById('imageRemoveBtn');
+        const imageUpload = document.getElementById('imageUpload');
+
+        imagePreview.src = '';
+        imagePreview.style.display = 'none';
+        imageRemoveBtn.style.display = 'none';
+        imageUpload.value = ''; // 파일 입력 초기화
+        uploadedImage = null;
+
+        // Use fetch API for POST request with SSE
+        fetchStreamData(apiEndpoint, requestData);
+    }
+
+    // Stream implementation using fetch API
+    async function fetchStreamData(url, requestData) {
+        try {
+            debugLog("Starting fetch request...");
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream'
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            debugLog(`Response status: ${response.status}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const {done, value} = await reader.read();
+
+                if (done) {
+                    debugLog("Stream complete");
+                    if (currentStreamingMessage) {
+                        currentStreamingMessage.classList.remove('streaming');
+                        currentStreamingMessage = null;
+                        currentStreamText = '';
+                    }
+                    hideTypingIndicator();
+                    document.getElementById('userInput').disabled = false;
+                    document.getElementById('sendButton').disabled = false;
+                    break;
+                }
+
+                // Decode and append to buffer
+                buffer += decoder.decode(value, {stream: true});
+
+                // Process each SSE event in the buffer
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || ''; // Keep the last incomplete event
+
+                for (const event of events) {
+                    if (event.trim()) {
+                        // SSE 형식 처리
+                        processStreamData({data: event});
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+            debugLog(`Fetch error: ${error.message}`);
+            hideTypingIndicator();
+
+            // Add error message to chat
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'message system-message';
+            errorMessage.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            document.getElementById('chatMessages').appendChild(errorMessage);
+
+            // Re-enable input
+            document.getElementById('userInput').disabled = false;
+            document.getElementById('sendButton').disabled = false;
+        }
+    }
+
+    // 스트림 데이터 처리 함수
+    function processStreamData(event) {
             try {
                 // 수신된 데이터가 없으면 무시
                 if (!event.data || !event.data.trim()) {
@@ -681,126 +799,6 @@
                 debugLog(`Error processing stream data: ${error.message}`);
             }
         }
-
-        // Send message to server
-        function sendMessage() {
-            const userInput = document.getElementById('userInput');
-            const message = userInput.value.trim();
-
-            if (!message) return; // Don't send empty messages
-
-            // Add user message to chat
-            addMessage(true, message);
-
-            // Clear input field
-            userInput.value = '';
-
-            // Disable input while waiting for response
-            userInput.disabled = true;
-            document.getElementById('sendButton').disabled = true;
-
-            // Show typing indicator
-            showTypingIndicator();
-
-            // Prepare request data
-            const apiEndpoint = document.getElementById('apiEndpoint').value;
-            const ragSysInfo = document.getElementById('ragSysInfo').value;
-            const sessionId = document.getElementById('sessionId').value;
-            const language = document.getElementById('language').value;
-
-            const requestData = {
-                meta: {
-                    company_id: "mico",
-                    dept_class: "dept1",
-                    rag_sys_info: ragSysInfo,
-                    session_id: sessionId
-                },
-                chat: {
-                    lang: language,
-                    user: message,
-                    category1: "",
-                    category2: "",
-                    category3: "",
-                    payload: []
-                }
-            };
-
-            debugLog(`Sending request to ${apiEndpoint}`);
-            debugLog(`Request data: ${JSON.stringify(requestData).substring(0, 100)}...`);
-
-            // Use fetch API for POST request with SSE
-            fetchStreamData(apiEndpoint, requestData);
-        }
-
-        // Stream implementation using fetch API
-        async function fetchStreamData(url, requestData) {
-            try {
-                debugLog("Starting fetch request...");
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'text/event-stream'
-                    },
-                    body: JSON.stringify(requestData)
-                });
-
-                debugLog(`Response status: ${response.status}`);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder('utf-8');
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-
-                    if (done) {
-                        debugLog("Stream complete");
-                        if (currentStreamingMessage) {
-                            currentStreamingMessage.classList.remove('streaming');
-                            currentStreamingMessage = null;
-                            currentStreamText = '';
-                        }
-                        hideTypingIndicator();
-                        document.getElementById('userInput').disabled = false;
-                        document.getElementById('sendButton').disabled = false;
-                        break;
-                    }
-
-                    // Decode and append to buffer
-                    buffer += decoder.decode(value, { stream: true });
-
-                    // Process each SSE event in the buffer
-                    const events = buffer.split('\n\n');
-                    buffer = events.pop() || ''; // Keep the last incomplete event
-
-                    for (const event of events) {
-                        if (event.trim()) {
-                            // SSE 형식 처리
-                            processStreamData({ data: event });
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Fetch error:', error);
-                debugLog(`Fetch error: ${error.message}`);
-                hideTypingIndicator();
-
-                // Add error message to chat
-                const errorMessage = document.createElement('div');
-                errorMessage.className = 'message system-message';
-                errorMessage.innerHTML = `<strong>Error:</strong> ${error.message}`;
-                document.getElementById('chatMessages').appendChild(errorMessage);
-
-                // Re-enable input
-                document.getElementById('userInput').disabled = false;
-                document.getElementById('sendButton').disabled = false;
-            }
-        }
-    </script>
+</script>
 </body>
 </html>
