@@ -375,6 +375,7 @@
                 breaks: true,       // 줄바꿈을 <br>로 변환
                 linkify: true,      // URL을 자동으로 링크로 변환
                 typographer: true,  // 인용부호 및 대시 등의 변환 지원
+                whitespace: true,   // 추가: 공백 문자 처리 허용
                 highlight: function(str, lang) {
                     // 코드 블록 하이라이팅 기능 추가
                     if (lang && hljs && hljs.getLanguage(lang)) {
@@ -386,6 +387,15 @@
                 }
             });
 
+            // 추가: 줄바꿈 처리를 위한 플러그인
+            md.use(function(md) {
+                // 기본 줄바꿈 규칙을 수정하여 \n을 더 잘 처리하도록 함
+                md.core.ruler.push('normalize_newlines', function(state) {
+                    // 연속된 줄바꿈을 처리
+                    state.src = state.src.replace(/\n{2,}/g, '\n\n');
+                });
+            });
+
             debugLog("Markdown parser initialized");
         }
 
@@ -393,6 +403,9 @@
         function renderMarkdown(text) {
             if (!text) return '';
             try {
+                // 줄바꿈 문자를 정규화
+                text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
                 return md.render(text || '');
             } catch (e) {
                 console.error("Markdown rendering error:", e);
