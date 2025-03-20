@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Dict, Optional, List
 
 from pydantic import BaseModel
 
@@ -21,6 +21,12 @@ class BaseChat(BaseModel):
     category3: Optional[str] = None  # 3차 분류 (선택 사항)
 
 
+class ImageData(BaseModel):
+    filename: Optional[str] = None
+    data: Optional[str] = None
+    mime_type: Optional[str] = None
+
+
 class ChatRequestData(BaseChat):
     """
     Model representing user chat request data.
@@ -31,6 +37,12 @@ class ChatRequestData(BaseChat):
     """
     lang: str = "ko"  # 기본 언어는 한국어 ("ko")
     user: str  # 사용자 입력 쿼리
+    category1: Optional[str] = None
+    category2: Optional[str] = None
+    category3: Optional[str] = None
+    payload: Optional[List[Payload]] = None
+    # 이미지 처리를 위한 새로운 필드 추가
+    image: Optional[ImageData] = None
 
 
 class ChatResponseData(BaseChat):

@@ -603,8 +603,9 @@
                 payload: [],
                 // 이미지 정보 추가 (이미지가 있는 경우에만)
                 image: uploadedImage ? {
-                    base64: uploadedImage.split(',')[1], // base64 데이터만 추출
-                    mime_type: uploadedImage.split(';')[0].split(':')[1]
+                    filename: document.getElementById('imageUpload').files[0].name, // 파일 이름 추출
+                    data: uploadedImage.split(',')[1], // base64 데이터만 추출
+                    mime_type: uploadedImage.split(';')[0].split(':')[1] // MIME 타입 추출
                 } : null
             }
         };
@@ -699,146 +700,146 @@
 
     // 스트림 데이터 처리 함수
     function processStreamData(event) {
-            try {
-                // 수신된 데이터가 없으면 무시
-                if (!event.data || !event.data.trim()) {
-                    return;
-                }
+        try {
+            // 수신된 데이터가 없으면 무시
+            if (!event.data || !event.data.trim()) {
+                return;
+            }
 
-                // 'data: ' 접두사 제거
-                let jsonStr = event.data;
-                if (jsonStr.startsWith('data: ')) {
-                    jsonStr = jsonStr.substring(6);
-                }
+            // 'data: ' 접두사 제거
+            let jsonStr = event.data;
+            if (jsonStr.startsWith('data: ')) {
+                jsonStr = jsonStr.substring(6);
+            }
 
-                // JSON 파싱
-                const data = JSON.parse(jsonStr);
-                debugLog(`Received stream data: ${JSON.stringify(data).substring(0, 100)}...`);
+            // JSON 파싱
+            const data = JSON.parse(jsonStr);
+            debugLog(`Received stream data: ${JSON.stringify(data).substring(0, 100)}...`);
 
-                // 완전한 응답 처리 (complete_response)
-                if (data.complete_response) {
-                    debugLog(`Complete response received`);
-                    const completeText = data.complete_response;
+            // 완전한 응답 처리 (complete_response)
+            if (data.complete_response) {
+                debugLog(`Complete response received`);
+                const completeText = data.complete_response;
 
-                    // 기존 스트리밍 메시지 요소 찾기
-                    if (currentStreamingMessage) {
-                        // 스트리밍 응답과 complete_response가 동일한지 확인
-                        if (currentStreamText.trim() === completeText.trim()) {
-                            debugLog(`Complete response is identical to streaming response, no update needed`);
-                            // 스트리밍 클래스만 제거하고 내용은 업데이트하지 않음
-                            currentStreamingMessage.classList.remove('streaming');
-                        } else {
-                            debugLog(`Complete response differs from streaming response, updating content`);
-                            // 스트리밍 클래스 제거
-                            currentStreamingMessage.classList.remove('streaming');
-
-                            // 마크다운으로 완전한 응답 렌더링
-                            const markdownHtml = renderMarkdown(completeText);
-                            currentStreamingMessage.innerHTML = markdownHtml;
-
-                            // 전역 변수 업데이트
-                            currentStreamText = completeText;
-                        }
-
-                        // 스트리밍 상태 종료
-                        currentStreamingMessage = null;
+                // 기존 스트리밍 메시지 요소 찾기
+                if (currentStreamingMessage) {
+                    // 스트리밍 응답과 complete_response가 동일한지 확인
+                    if (currentStreamText.trim() === completeText.trim()) {
+                        debugLog(`Complete response is identical to streaming response, no update needed`);
+                        // 스트리밍 클래스만 제거하고 내용은 업데이트하지 않음
+                        currentStreamingMessage.classList.remove('streaming');
                     } else {
-                        // 스트리밍 메시지 요소가 없는 경우 새로 생성
-                        const newMessage = document.createElement('div');
-                        newMessage.className = 'message system-message';
-                        newMessage.innerHTML = renderMarkdown(completeText);
-                        document.getElementById('chatMessages').appendChild(newMessage);
+                        debugLog(`Complete response differs from streaming response, updating content`);
+                        // 스트리밍 클래스 제거
+                        currentStreamingMessage.classList.remove('streaming');
+
+                        // 마크다운으로 완전한 응답 렌더링
+                        const markdownHtml = renderMarkdown(completeText);
+                        currentStreamingMessage.innerHTML = markdownHtml;
+
+                        // 전역 변수 업데이트
+                        currentStreamText = completeText;
                     }
 
+                    // 스트리밍 상태 종료
+                    currentStreamingMessage = null;
+                } else {
+                    // 스트리밍 메시지 요소가 없는 경우 새로 생성
+                    const newMessage = document.createElement('div');
+                    newMessage.className = 'message system-message';
+                    newMessage.innerHTML = renderMarkdown(completeText);
+                    document.getElementById('chatMessages').appendChild(newMessage);
+                }
+
+                // 입력 활성화
+                document.getElementById('userInput').disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                document.getElementById('userInput').focus();
+                hideTypingIndicator();
+
+                return;
+            }
+
+            // 오류 처리
+            if (data.error) {
+                debugLog(`Error: ${data.text || "Unknown error"}`);
+
+                const errorElement = document.createElement('div');
+                errorElement.className = 'message system-message';
+                errorElement.innerHTML = `<strong>Error:</strong> ${data.text || data.message || "Unknown error"}`;
+                document.getElementById('chatMessages').appendChild(errorElement);
+
+                // 현재 스트리밍 메시지 삭제 (있는 경우)
+                if (currentStreamingMessage) {
+                    currentStreamingMessage.remove();
+                    currentStreamingMessage = null;
+                    currentStreamText = '';
+                }
+
+                // 입력 활성화
+                document.getElementById('userInput').disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                hideTypingIndicator();
+
+                return;
+            }
+
+            // 텍스트 업데이트 처리
+            if (data.text !== undefined) {
+                // 현재 스트리밍 메시지 없으면 새로 생성
+                if (!currentStreamingMessage) {
+                    currentStreamingMessage = document.createElement('div');
+                    currentStreamingMessage.className = 'message system-message streaming';
+                    document.getElementById('chatMessages').appendChild(currentStreamingMessage);
+                    currentStreamText = '';
+                }
+
+                // 누적 텍스트에 새 텍스트 추가
+                currentStreamText += data.text;
+
+                // 마크다운으로 렌더링
+                currentStreamingMessage.innerHTML = renderMarkdown(currentStreamText);
+
+                // 스크롤 자동 이동
+                document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+            }
+
+            // 메시지 완료 처리
+            if (data.finished) {
+                debugLog(`Stream finished - 완전한 응답을 기다리는 중...`);
+
+                if (currentStreamingMessage) {
+                    // 스트리밍 표시는 유지하되 텍스트는 완성
+                    // complete_response가 올 때까지 스트리밍 표시 유지
+                    currentStreamingMessage.innerHTML = renderMarkdown(currentStreamText);
+
+                    // 잠시 대기 (complete_response 기다림)
+                    setTimeout(() => {
+                        // 만약 complete_response가 오지 않았다면 스트리밍 상태 종료
+                        if (currentStreamingMessage && currentStreamingMessage.classList.contains('streaming')) {
+                            currentStreamingMessage.classList.remove('streaming');
+                            currentStreamingMessage = null;
+
+                            // 입력 활성화
+                            document.getElementById('userInput').disabled = false;
+                            document.getElementById('sendButton').disabled = false;
+                            document.getElementById('userInput').focus();
+                            hideTypingIndicator();
+                        }
+                    }, 1000); // 1초 대기
+                } else {
                     // 입력 활성화
                     document.getElementById('userInput').disabled = false;
                     document.getElementById('sendButton').disabled = false;
                     document.getElementById('userInput').focus();
                     hideTypingIndicator();
-
-                    return;
                 }
-
-                // 오류 처리
-                if (data.error) {
-                    debugLog(`Error: ${data.text || "Unknown error"}`);
-
-                    const errorElement = document.createElement('div');
-                    errorElement.className = 'message system-message';
-                    errorElement.innerHTML = `<strong>Error:</strong> ${data.text || data.message || "Unknown error"}`;
-                    document.getElementById('chatMessages').appendChild(errorElement);
-
-                    // 현재 스트리밍 메시지 삭제 (있는 경우)
-                    if (currentStreamingMessage) {
-                        currentStreamingMessage.remove();
-                        currentStreamingMessage = null;
-                        currentStreamText = '';
-                    }
-
-                    // 입력 활성화
-                    document.getElementById('userInput').disabled = false;
-                    document.getElementById('sendButton').disabled = false;
-                    hideTypingIndicator();
-
-                    return;
-                }
-
-                // 텍스트 업데이트 처리
-                if (data.text !== undefined) {
-                    // 현재 스트리밍 메시지 없으면 새로 생성
-                    if (!currentStreamingMessage) {
-                        currentStreamingMessage = document.createElement('div');
-                        currentStreamingMessage.className = 'message system-message streaming';
-                        document.getElementById('chatMessages').appendChild(currentStreamingMessage);
-                        currentStreamText = '';
-                    }
-
-                    // 누적 텍스트에 새 텍스트 추가
-                    currentStreamText += data.text;
-
-                    // 마크다운으로 렌더링
-                    currentStreamingMessage.innerHTML = renderMarkdown(currentStreamText);
-
-                    // 스크롤 자동 이동
-                    document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
-                }
-
-                // 메시지 완료 처리
-                if (data.finished) {
-                    debugLog(`Stream finished - 완전한 응답을 기다리는 중...`);
-
-                    if (currentStreamingMessage) {
-                        // 스트리밍 표시는 유지하되 텍스트는 완성
-                        // complete_response가 올 때까지 스트리밍 표시 유지
-                        currentStreamingMessage.innerHTML = renderMarkdown(currentStreamText);
-
-                        // 잠시 대기 (complete_response 기다림)
-                        setTimeout(() => {
-                            // 만약 complete_response가 오지 않았다면 스트리밍 상태 종료
-                            if (currentStreamingMessage && currentStreamingMessage.classList.contains('streaming')) {
-                                currentStreamingMessage.classList.remove('streaming');
-                                currentStreamingMessage = null;
-
-                                // 입력 활성화
-                                document.getElementById('userInput').disabled = false;
-                                document.getElementById('sendButton').disabled = false;
-                                document.getElementById('userInput').focus();
-                                hideTypingIndicator();
-                            }
-                        }, 1000); // 1초 대기
-                    } else {
-                        // 입력 활성화
-                        document.getElementById('userInput').disabled = false;
-                        document.getElementById('sendButton').disabled = false;
-                        document.getElementById('userInput').focus();
-                        hideTypingIndicator();
-                    }
-                }
-            } catch (error) {
-                console.error('Error processing stream data:', error);
-                debugLog(`Error processing stream data: ${error.message}`);
             }
+        } catch (error) {
+            console.error('Error processing stream data:', error);
+            debugLog(`Error processing stream data: ${error.message}`);
         }
+    }
 </script>
 </body>
 </html>

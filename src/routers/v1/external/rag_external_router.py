@@ -234,6 +234,7 @@ async def chat_stream_req(request: ChatRequest, background_tasks: BackgroundTask
     safe_log_request("/chat/stream", request)
 
     try:
+        logger.error(request)
         # Call the process_chat_stream method
         streaming_response = await data_handler.process_chat_stream(request, background_tasks)
 
