@@ -23,7 +23,7 @@ class BaseChat(BaseModel):
 
 class ImageData(BaseModel):
     filename: Optional[str] = None
-    data: Optional[str] = None
+    data: Optional[str] = None  # Base64 encoded image data
     mime_type: Optional[str] = None
 
 
@@ -105,7 +105,12 @@ class ChatRequest(BaseModel):
                         "user": "user query",
                         "category1": "category1",
                         "category2": "category2",
-                        "category3": "category3"
+                        "category3": "category3",
+                        "image": {
+                            "filename": "example.jpg",
+                            "data": "base64_encoded_data",
+                            "mime_type": "image/jpeg"
+                        }
                     }
                 }
             ]

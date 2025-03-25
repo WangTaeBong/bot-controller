@@ -3,6 +3,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 from src.models.common.models import Payload, DocChatCommonMeta  # 공통 모델 import
+from src.models.external.chat_llm import ImageData  # Import from external models
 
 
 class ChatLLMReq(BaseModel):
@@ -23,6 +24,7 @@ class ChatLLMReq(BaseModel):
     category2: Optional[str] = None  # 2차 카테고리 (선택 사항)
     category3: Optional[str] = None  # 3차 카테고리 (선택 사항)
     payload: Optional[List[Payload]] = None  # 관련 문서 정보 (선택 사항)
+    image: Optional[ImageData] = None  # New field for image data
 
 
 class ChatLLMRequest(BaseModel):

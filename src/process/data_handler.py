@@ -563,6 +563,14 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
         f"[Session ID: {request.meta.session_id}]"
     )
 
+    # Log image presence if applicable
+    if hasattr(request.chat, 'image') and request.chat.image:
+        logger.debug(
+            f"[process_chat_stream] Image included in request: "
+            f"filename={request.chat.image.filename}, "
+            f"mime_type={request.chat.image.mime_type}"
+        )
+
     try:
         # 메타데이터 구성
         meta = DocChatCommonMeta(
@@ -573,9 +581,10 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
         )
 
         logger.debug(
-            f"[process_chat_stream] 메타데이터 생성 완료: company_id={meta.company_id}, rag_sys_info={meta.rag_sys_info}")
+            f"[process_chat_stream] Metadata created: company_id={meta.company_id}, rag_sys_info={meta.rag_sys_info}")
 
         try:
+            # Exclude language from the dict but retain other fields including image if present
             chat_data = request.chat.dict(exclude={"lang"})
 
             chat_request = ChatRequest(
@@ -584,20 +593,20 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
             )
 
         except Exception as e:
-            logger.error(f"[DEBUG] [process_chat_stream] 채팅 데이터 변환 중 오류: {str(e)}")
+            logger.error(f"[DEBUG] [process_chat_stream] Error converting chat data: {str(e)}")
             raise
 
         # FAQ 쿼리 최적화
         try:
             original_query = request.chat.user
-            logger.debug(f"[process_chat_stream] FAQ 쿼리 최적화 전 원본 쿼리: {original_query}")
+            logger.debug(f"[process_chat_stream] Original query before FAQ optimization: {original_query}")
 
             faq_query = optimize_category_faq_query(request)
             if faq_query and faq_query != original_query:
-                logger.debug(f"[process_chat_stream] LLM 쿼리 최적화 결과: {faq_query}")
+                logger.debug(f"[process_chat_stream] Optimized LLM query: {faq_query}")
                 chat_request.chat.user = faq_query
             else:
-                logger.debug("[process_chat_stream] LLM 쿼리 최적화 적용되지 않음")
+                logger.debug("[process_chat_stream] FAQ query optimization not applied")
 
         except Exception as e:
             logger.error(f"[process_chat_stream] FAQ 쿼리 최적화 중 오류: {str(e)}")
@@ -614,7 +623,8 @@ async def process_chat_stream(request: ChatRequest, background_tasks: Background
                     category1=request.chat.category1,
                     category2=request.chat.category2,
                     category3=request.chat.category3,
-                    payload=[]  # For streaming, we'll use the LLM's retriever directly
+                    payload=[],  # For streaming, we'll use the LLM's retriever directly
+                    image=request.chat.image if hasattr(request.chat, 'image') else None  # Include image if present
                 )
             )
             logger.debug(f"[process_chat_stream] LLM 요청 객체 생성 완료: lang={request.chat.lang}")

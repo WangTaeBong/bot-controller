@@ -234,7 +234,14 @@ async def chat_stream_req(request: ChatRequest, background_tasks: BackgroundTask
     safe_log_request("/chat/stream", request)
 
     try:
-        logger.error(request)
+        # Log image presence for debugging (not the actual image data which would be too large)
+        if request.chat.image:
+            logger.info(
+                f"[{request.meta.session_id}] Received image in chat request: "
+                f"filename={request.chat.image.filename}, "
+                f"mime_type={request.chat.image.mime_type}"
+            )
+
         # Call the process_chat_stream method
         streaming_response = await data_handler.process_chat_stream(request, background_tasks)
 
